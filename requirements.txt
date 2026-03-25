@@ -1,0 +1,7 @@
+faster-whisper
+pyannote.audio
+scenedetect[opencv]
+python-pptx
+Pillow
+tqdm
+numpy
