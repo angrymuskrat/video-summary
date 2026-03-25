@@ -1,0 +1,22 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "video-summary"
+version = "0.1.0"
+description = "Local pipeline for meeting video transcription, diarization, scene detection, and PPTX export."
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "faster-whisper",
+    "pyannote.audio",
+    "scenedetect[opencv]",
+    "python-pptx",
+    "Pillow",
+    "tqdm",
+    "numpy",
+]
+
+[tool.poetry]
+package-mode = false
