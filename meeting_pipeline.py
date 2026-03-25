@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import wave
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -66,9 +67,40 @@ def run(cmd: Sequence[str], cwd: Optional[Path] = None, capture: bool = False) -
     return subprocess.run(list(cmd), **kwargs)
 
 
+def ffmpeg_supports_encoder(encoder: str) -> bool:
+    try:
+        out = run(["ffmpeg", "-hide_banner", "-encoders"], capture=True)
+    except subprocess.CalledProcessError:
+        return False
+    return encoder in out.stdout
+
+
+def resolve_ffmpeg_video_encoder(requested: str) -> str:
+    if requested == "auto":
+        return "h264_nvenc" if ffmpeg_supports_encoder("h264_nvenc") else "libx264"
+    return requested
+
+
+def video_encode_args(encoder: str) -> List[str]:
+    if encoder == "h264_nvenc":
+        return [
+            "-c:v", "h264_nvenc",
+            "-preset", "p5",
+            "-cq", "23",
+            "-b:v", "0",
+            "-pix_fmt", "yuv420p",
+        ]
+    return [
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-pix_fmt", "yuv420p",
+    ]
+
+
 def ensure_tool(name: str) -> None:
     if shutil.which(name) is None:
-        raise RuntimeError(f"Не найден инструмент '{name}' в PATH.")
+        raise RuntimeError(f"РќРµ РЅР°Р№РґРµРЅ РёРЅСЃС‚СЂСѓРјРµРЅС‚ '{name}' РІ PATH.")
 
 
 def ffprobe_json(input_path: Path) -> Dict[str, Any]:
@@ -90,20 +122,32 @@ def parse_fps(r_frame_rate: str) -> float:
     return num_f / den_f if den_f else 25.0
 
 
-def ensure_work_mp4(input_video: Path, work_video: Path) -> None:
+def ensure_work_mp4(input_video: Path, work_video: Path, video_encoder: str) -> None:
     cmd = [
         "ffmpeg", "-y", "-i", str(input_video),
         "-map", "0:v:0",
         "-map", "0:a:0?",
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
+        *video_encode_args(video_encoder),
         "-c:a", "aac",
         "-b:a", "128k",
         str(work_video),
     ]
-    run(cmd)
+    try:
+        run(cmd)
+    except subprocess.CalledProcessError:
+        if video_encoder == "libx264":
+            raise
+        print(f"[WARN] ffmpeg video encoder '{video_encoder}' failed, retrying with libx264")
+        fallback_cmd = [
+            "ffmpeg", "-y", "-i", str(input_video),
+            "-map", "0:v:0",
+            "-map", "0:a:0?",
+            *video_encode_args("libx264"),
+            "-c:a", "aac",
+            "-b:a", "128k",
+            str(work_video),
+        ]
+        run(fallback_cmd)
 
 
 def extract_audio(input_video: Path, audio_wav: Path) -> None:
@@ -139,6 +183,25 @@ def clean_text_spacing(text: str) -> str:
     return text.strip()
 
 
+def is_cuda_runtime_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    cuda_markers = (
+        "cublas",
+        "cudnn",
+        "cuda",
+        "cannot be loaded",
+        "not found",
+        "failed to load",
+    )
+    return any(marker in message for marker in cuda_markers)
+
+
+def normalize_compute_type(device: str, compute_type: str) -> str:
+    if device == "cpu" and compute_type in {"float16", "int8_float16", "bfloat16"}:
+        return "int8"
+    return compute_type
+
+
 def transcribe_audio_faster_whisper(
     audio_path: Path,
     model_name: str,
@@ -149,20 +212,39 @@ def transcribe_audio_faster_whisper(
 ) -> Tuple[List[WordToken], Dict[str, Any]]:
     from faster_whisper import WhisperModel
 
-    if verbose:
-        print(f"[ASR] Loading faster-whisper model={model_name} device={device} compute_type={compute_type}")
+    resolved_device = device
+    resolved_compute_type = normalize_compute_type(device, compute_type)
+    if resolved_compute_type != compute_type and verbose:
+        print(f"[ASR] compute_type={compute_type} is not suitable for CPU, using {resolved_compute_type}")
 
-    model = WhisperModel(model_name, device=device, compute_type=compute_type)
-    segments_gen, info = model.transcribe(
-        str(audio_path),
-        beam_size=5,
-        language=language,
-        word_timestamps=True,
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500),
-        condition_on_previous_text=False,
-    )
-    segments = list(segments_gen)
+    def run_transcribe(device_name: str, compute_name: str) -> Tuple[List[Any], Any]:
+        if verbose:
+            print(f"[ASR] Loading faster-whisper model={model_name} device={device_name} compute_type={compute_name}")
+        model = WhisperModel(model_name, device=device_name, compute_type=compute_name)
+        segments_gen, info_obj = model.transcribe(
+            str(audio_path),
+            beam_size=5,
+            language=language,
+            word_timestamps=True,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+            condition_on_previous_text=False,
+        )
+        return list(segments_gen), info_obj
+
+    if verbose:
+        print(f"[ASR] Requested device={device} compute_type={compute_type}")
+
+    try:
+        segments, info = run_transcribe(resolved_device, resolved_compute_type)
+    except RuntimeError as exc:
+        if resolved_device == "cuda" and is_cuda_runtime_error(exc):
+            resolved_device = "cpu"
+            resolved_compute_type = "int8"
+            print(f"[WARN] CUDA ASR failed ({exc}). Falling back to CPU ({resolved_compute_type}).")
+            segments, info = run_transcribe(resolved_device, resolved_compute_type)
+        else:
+            raise
 
     words: List[WordToken] = []
     for seg in segments:
@@ -183,6 +265,8 @@ def transcribe_audio_faster_whisper(
         "language": getattr(info, "language", language),
         "language_probability": getattr(info, "language_probability", None),
         "model_name": model_name,
+        "device": resolved_device,
+        "compute_type": resolved_compute_type,
         "segment_count": len(segments),
         "word_count": len(words),
     }
@@ -209,7 +293,13 @@ def diarize_audio_pyannote(
         token=hf_token,
     )
     if device == "cuda":
-        pipeline.to(torch.device("cuda"))
+        try:
+            pipeline.to(torch.device("cuda"))
+        except RuntimeError as exc:
+            if is_cuda_runtime_error(exc):
+                print(f"[WARN] CUDA diarization failed ({exc}). Falling back to CPU.")
+            else:
+                raise
 
     kwargs: Dict[str, Any] = {}
     if num_speakers is not None:
@@ -219,7 +309,32 @@ def diarize_audio_pyannote(
     if max_speakers is not None:
         kwargs["max_speakers"] = max_speakers
 
-    diar_output = pipeline(str(audio_path), **kwargs)
+    audio_input: Any = str(audio_path)
+    try:
+        with wave.open(str(audio_path), "rb") as wav_file:
+            channels = wav_file.getnchannels()
+            sample_width = wav_file.getsampwidth()
+            sample_rate = wav_file.getframerate()
+            frame_count = wav_file.getnframes()
+            raw_bytes = wav_file.readframes(frame_count)
+
+        if sample_width == 2:
+            pcm = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+            if channels > 1:
+                pcm = pcm.reshape(-1, channels).T
+            else:
+                pcm = pcm.reshape(1, -1)
+            waveform = torch.from_numpy(np.ascontiguousarray(pcm))
+            audio_input = {"waveform": waveform, "sample_rate": sample_rate, "uri": audio_path.stem}
+            if verbose:
+                print("[DIAR] Using in-memory waveform input to avoid AudioDecoder dependency.")
+        elif verbose:
+            print(f"[DIAR] WAV sample width {sample_width} bytes is unsupported for in-memory fallback; using file path.")
+    except (wave.Error, OSError, ValueError) as exc:
+        if verbose:
+            print(f"[DIAR] Could not preload audio ({exc}); using file path for diarization.")
+
+    diar_output = pipeline(audio_input, **kwargs)
     ann = getattr(diar_output, "speaker_diarization", diar_output)
 
     raw_turns: List[Tuple[float, float, str]] = []
@@ -411,21 +526,33 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def burn_subtitles_hard(work_video: Path, ass_file: Path, output_video: Path) -> None:
+def burn_subtitles_hard(work_video: Path, ass_file: Path, output_video: Path, video_encoder: str) -> None:
     # Use relative subtitle filename from its own directory to avoid Windows path escaping issues.
     cmd = [
         "ffmpeg", "-y",
         "-i", str(work_video),
         "-vf", f"subtitles={ass_file.name}",
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
+        *video_encode_args(video_encoder),
         "-c:a", "aac",
         "-b:a", "128k",
         str(output_video),
     ]
-    run(cmd, cwd=ass_file.parent)
+    try:
+        run(cmd, cwd=ass_file.parent)
+    except subprocess.CalledProcessError:
+        if video_encoder == "libx264":
+            raise
+        print(f"[WARN] ffmpeg video encoder '{video_encoder}' failed for hard subtitles, retrying with libx264")
+        fallback_cmd = [
+            "ffmpeg", "-y",
+            "-i", str(work_video),
+            "-vf", f"subtitles={ass_file.name}",
+            *video_encode_args("libx264"),
+            "-c:a", "aac",
+            "-b:a", "128k",
+            str(output_video),
+        ]
+        run(fallback_cmd, cwd=ass_file.parent)
 
 
 def mux_subtitles_soft(work_video: Path, srt_file: Path, output_video: Path) -> None:
@@ -526,7 +653,7 @@ def trim_slide_text(text: str, max_chars: int = 1700) -> str:
     text = text.strip()
     if len(text) <= max_chars:
         return text
-    return text[: max_chars - 1].rstrip() + "…"
+    return text[: max_chars - 1].rstrip() + "вЂ¦"
 
 
 def build_slide_deck(
@@ -600,7 +727,7 @@ def create_pptx(slides_data: List[SceneSegment], pptx_path: Path, title: str) ->
 
     for seg in slides_data:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
-        header = f"Сегмент {seg.index:03d} • {format_ts(seg.start, srt=False)}–{format_ts(seg.end, srt=False)} • реплик: {seg.utterance_count}"
+        header = f"РЎРµРіРјРµРЅС‚ {seg.index:03d} вЂў {format_ts(seg.start, srt=False)}вЂ“{format_ts(seg.end, srt=False)} вЂў СЂРµРїР»РёРє: {seg.utterance_count}"
         add_textbox(slide, Inches(0.4), Inches(0.2), Inches(12.5), Inches(0.5), header, font_size=20, bold=True)
 
         img_left = Inches(0.4)
@@ -620,7 +747,7 @@ def create_pptx(slides_data: List[SceneSegment], pptx_path: Path, title: str) ->
         tf.word_wrap = True
         tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
-        for i, line in enumerate(seg.text.splitlines() if seg.text else ["(нет текста для этого сегмента)"]):
+        for i, line in enumerate(seg.text.splitlines() if seg.text else ["(РЅРµС‚ С‚РµРєСЃС‚Р° РґР»СЏ СЌС‚РѕРіРѕ СЃРµРіРјРµРЅС‚Р°)"]):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             p.text = line
             p.alignment = PP_ALIGN.LEFT
@@ -665,6 +792,177 @@ def save_json(obj: Any, out_path: Path) -> None:
     out_path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=default), encoding="utf-8")
 
 
+STEP_ORDER = (
+    "prepare",
+    "asr",
+    "diarize",
+    "align",
+    "scenes",
+    "slides",
+    "write",
+    "render",
+)
+STEP_NUMBERS = {name: idx for idx, name in enumerate(STEP_ORDER, start=1)}
+
+
+def load_json(in_path: Path) -> Any:
+    return json.loads(in_path.read_text(encoding="utf-8"))
+
+
+def state_json_path(out_dir: Path) -> Path:
+    return out_dir / "pipeline_state.json"
+
+
+def word_from_dict(data: Dict[str, Any]) -> WordToken:
+    return WordToken(
+        start=float(data["start"]),
+        end=float(data["end"]),
+        text=str(data["text"]),
+        speaker=int(data["speaker"]) if data.get("speaker") is not None else None,
+    )
+
+
+def speaker_turn_from_dict(data: Dict[str, Any]) -> SpeakerTurn:
+    return SpeakerTurn(
+        start=float(data["start"]),
+        end=float(data["end"]),
+        speaker=int(data["speaker"]),
+    )
+
+
+def utterance_from_dict(data: Dict[str, Any]) -> Utterance:
+    return Utterance(
+        start=float(data["start"]),
+        end=float(data["end"]),
+        speaker=int(data["speaker"]),
+        text=str(data["text"]),
+    )
+
+
+def scene_segment_from_dict(data: Dict[str, Any]) -> SceneSegment:
+    return SceneSegment(
+        index=int(data["index"]),
+        start=float(data["start"]),
+        end=float(data["end"]),
+        frame_path=str(data["frame_path"]),
+        text=str(data["text"]),
+        utterance_count=int(data["utterance_count"]),
+    )
+
+
+def load_pipeline_state(state_path: Path) -> Dict[str, Any]:
+    if not state_path.exists():
+        raise FileNotFoundError(
+            f"РќРµ РЅР°Р№РґРµРЅ С„Р°Р№Р» СЃРѕСЃС‚РѕСЏРЅРёСЏ '{state_path}'. "
+            "Р”Р»СЏ Р·Р°РїСѓСЃРєР° СЃ РїСЂРѕРјРµР¶СѓС‚РѕС‡РЅРѕРіРѕ С€Р°РіР° СЃРЅР°С‡Р°Р»Р° РІС‹РїРѕР»РЅРё РїРѕР»РЅС‹Р№ РїСЂРѕРіРѕРЅ СЃ `--keep-work-files`."
+        )
+    data = load_json(state_path)
+    if not isinstance(data, dict):
+        raise RuntimeError(f"РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ С„РѕСЂРјР°С‚ state-С„Р°Р№Р»Р°: {state_path}")
+    return data
+
+
+def save_pipeline_state(state_path: Path, state: Dict[str, Any]) -> None:
+    state = dict(state)
+    state["state_version"] = 1
+    save_json(state, state_path)
+
+
+def require_existing_file(path: Path, description: str, hint: Optional[str] = None) -> None:
+    if path.exists():
+        return
+    msg = f"РќРµ РЅР°Р№РґРµРЅ {description}: {path}"
+    if hint:
+        msg += f". {hint}"
+    raise FileNotFoundError(msg)
+
+
+def validate_resume_input(state: Dict[str, Any], input_video: Path, start_from: str) -> None:
+    if start_from == "prepare":
+        return
+    saved_input = state.get("input_video")
+    if saved_input and Path(saved_input) != input_video:
+        raise RuntimeError(
+            "РќРµР»СЊР·СЏ РїСЂРѕРґРѕР»Р¶РёС‚СЊ РїР°Р№РїР»Р°Р№РЅ СЃ РґСЂСѓРіРёРј РІС…РѕРґРЅС‹Рј РІРёРґРµРѕ. "
+            f"state-С„Р°Р№Р» СЃРѕР±СЂР°РЅ РґР»СЏ '{saved_input}', Р° РїРµСЂРµРґР°РЅ '{input_video}'."
+        )
+
+
+def load_prepare_artifacts(
+    state: Dict[str, Any],
+    work_video: Path,
+    audio_wav: Path,
+) -> Tuple[float, int, int, float]:
+    require_existing_file(
+        work_video,
+        "РїРѕРґРіРѕС‚РѕРІР»РµРЅРЅС‹Р№ РІРёРґРµРѕС„Р°Р№Р» work.mp4",
+        "Р—Р°РїСѓСЃС‚Рё СЃРЅР°С‡Р°Р»Р° СЃ `--start-from prepare --keep-work-files`.",
+    )
+    require_existing_file(
+        audio_wav,
+        "РїРѕРґРіРѕС‚РѕРІР»РµРЅРЅС‹Р№ Р°СѓРґРёРѕС„Р°Р№Р» audio.wav",
+        "Р—Р°РїСѓСЃС‚Рё СЃРЅР°С‡Р°Р»Р° СЃ `--start-from prepare --keep-work-files`.",
+    )
+    video_meta = state.get("video")
+    if not isinstance(video_meta, dict):
+        raise RuntimeError("Р’ pipeline_state.json РЅРµС‚ СЃРµРєС†РёРё `video` РїРѕСЃР»Рµ С€Р°РіР° prepare.")
+    return (
+        float(state["duration_sec"]),
+        int(video_meta["width"]),
+        int(video_meta["height"]),
+        float(video_meta["fps"]),
+    )
+
+
+def load_asr_artifacts(state: Dict[str, Any]) -> Tuple[List[WordToken], Dict[str, Any]]:
+    raw_words = state.get("asr_words")
+    asr_meta = state.get("asr_meta")
+    if not isinstance(raw_words, list) or not isinstance(asr_meta, dict):
+        raise RuntimeError("Р’ pipeline_state.json РЅРµС‚ Р°СЂС‚РµС„Р°РєС‚РѕРІ С€Р°РіР° asr (`asr_words`, `asr_meta`).")
+    return [word_from_dict(item) for item in raw_words], asr_meta
+
+
+def load_diarization_artifacts(state: Dict[str, Any]) -> List[SpeakerTurn]:
+    raw_turns = state.get("speaker_turns")
+    if not isinstance(raw_turns, list):
+        raise RuntimeError("Р’ pipeline_state.json РЅРµС‚ `speaker_turns` РїРѕСЃР»Рµ С€Р°РіР° diarize.")
+    return [speaker_turn_from_dict(item) for item in raw_turns]
+
+
+def load_alignment_artifacts(state: Dict[str, Any]) -> Tuple[List[WordToken], List[Utterance], List[Utterance]]:
+    raw_words = state.get("words")
+    raw_utterances = state.get("utterances")
+    raw_subtitles = state.get("subtitles")
+    if not isinstance(raw_words, list) or not isinstance(raw_utterances, list) or not isinstance(raw_subtitles, list):
+        raise RuntimeError("Р’ pipeline_state.json РЅРµС‚ РґР°РЅРЅС‹С… С€Р°РіР° align (`words`, `utterances`, `subtitles`).")
+    return (
+        [word_from_dict(item) for item in raw_words],
+        [utterance_from_dict(item) for item in raw_utterances],
+        [utterance_from_dict(item) for item in raw_subtitles],
+    )
+
+
+def load_scene_artifacts(state: Dict[str, Any]) -> Tuple[List[Tuple[float, float]], bool]:
+    raw_scenes = state.get("scenes")
+    if not isinstance(raw_scenes, list) or "has_presentation" not in state:
+        raise RuntimeError("Р’ pipeline_state.json РЅРµС‚ Р°СЂС‚РµС„Р°РєС‚РѕРІ С€Р°РіР° scenes (`scenes`, `has_presentation`).")
+    return [(float(start), float(end)) for start, end in raw_scenes], bool(state["has_presentation"])
+
+
+def load_slide_artifacts(state: Dict[str, Any], pptx_path: Path, export_pdf: bool, pdf_path: Path) -> List[SceneSegment]:
+    raw_segments = state.get("slide_segments")
+    if not isinstance(raw_segments, list):
+        raise RuntimeError("Р’ pipeline_state.json РЅРµС‚ `slide_segments` РїРѕСЃР»Рµ С€Р°РіР° slides.")
+    require_existing_file(pptx_path, "СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅРЅС‹Р№ slides.pptx")
+    if export_pdf:
+        require_existing_file(pdf_path, "СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅРЅС‹Р№ slides.pdf")
+    return [scene_segment_from_dict(item) for item in raw_segments]
+
+
+def step_enabled(start_from: str, step_name: str) -> bool:
+    return STEP_NUMBERS[start_from] <= STEP_NUMBERS[step_name]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Local pipeline for meeting video transcription + diarization + slides")
     parser.add_argument("--input", required=True, help="Input video file (.webm, .mp4, ...)")
@@ -674,6 +972,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="large-v3", help="faster-whisper model: large-v3 | distil-large-v3 | turbo")
     parser.add_argument("--device", default="cuda", choices=["cuda", "cpu"], help="Inference device")
     parser.add_argument("--compute-type", default="float16", help="faster-whisper compute type")
+    parser.add_argument(
+        "--ffmpeg-video-encoder",
+        default="auto",
+        choices=["auto", "h264_nvenc", "libx264"],
+        help="Video encoder for ffmpeg. 'auto' prefers NVIDIA NVENC and falls back to libx264.",
+    )
     parser.add_argument("--presentation", default="auto", choices=["auto", "yes", "no"], help="How to build slides")
     parser.add_argument("--scene-detector", default="content", choices=["content", "adaptive", "hash"])
     parser.add_argument("--scene-threshold", type=float, default=None)
@@ -684,6 +988,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--subtitle-max-chars", type=int, default=84)
     parser.add_argument("--subtitle-max-duration", type=float, default=4.5)
     parser.add_argument("--transcript-gap", type=float, default=0.8)
+    parser.add_argument(
+        "--start-from",
+        default="prepare",
+        choices=list(STEP_ORDER),
+        help="Start pipeline from a specific step. Useful for debugging with existing intermediate artifacts.",
+    )
     parser.add_argument("--export-pdf", action="store_true")
     parser.add_argument("--keep-work-files", action="store_true")
     return parser.parse_args()
@@ -697,6 +1007,17 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     work_dir = out_dir / "_work"
     work_dir.mkdir(parents=True, exist_ok=True)
+    state_path = state_json_path(out_dir)
+    work_video = work_dir / "work.mp4"
+    audio_wav = work_dir / "audio.wav"
+    pptx_path = out_dir / "slides.pptx"
+    pdf_path = out_dir / "slides.pdf"
+    transcript_txt = out_dir / "transcript.txt"
+    transcript_json = out_dir / "transcript.json"
+    srt_path = out_dir / "subtitles.srt"
+    ass_path = out_dir / "subtitles.ass"
+    hard_mp4 = out_dir / "video_subtitled.mp4"
+    soft_mp4 = out_dir / "video_softsubs.mp4"
 
     if not input_video.exists():
         raise FileNotFoundError(input_video)
@@ -704,135 +1025,204 @@ def main() -> int:
     ensure_tool("ffmpeg")
     ensure_tool("ffprobe")
 
-    if not args.hf_token:
-        raise RuntimeError("Нужен Hugging Face token для pyannote (`--hf-token` или env `HF_TOKEN`).")
+    state: Dict[str, Any] = {}
+    if args.start_from != "prepare":
+        state = load_pipeline_state(state_path)
+    validate_resume_input(state, input_video, args.start_from)
 
-    print("[1/8] Preparing media")
-    work_video = work_dir / "work.mp4"
-    audio_wav = work_dir / "audio.wav"
-    ensure_work_mp4(input_video, work_video)
-    extract_audio(work_video, audio_wav)
+    if step_enabled(args.start_from, "diarize") and not args.hf_token:
+        raise RuntimeError("РќСѓР¶РµРЅ Hugging Face token РґР»СЏ pyannote (`--hf-token` РёР»Рё env `HF_TOKEN`).")
 
-    probe = ffprobe_json(work_video)
-    duration = float(probe["format"]["duration"])
-    vstream = next((s for s in probe.get("streams", []) if s.get("codec_type") == "video"), None)
-    width = int(vstream.get("width", 1920)) if vstream else 1920
-    height = int(vstream.get("height", 1080)) if vstream else 1080
-    fps = parse_fps(vstream.get("r_frame_rate", "25/1")) if vstream else 25.0
+    video_encoder = resolve_ffmpeg_video_encoder(args.ffmpeg_video_encoder)
+    print(f"[INFO] ffmpeg video encoder: {video_encoder}")
+    state["input_video"] = str(input_video)
+    state["start_from"] = args.start_from
 
-    print("[2/8] Running ASR")
-    words, asr_meta = transcribe_audio_faster_whisper(
-        audio_wav,
-        model_name=args.model,
-        language=args.language,
-        device=args.device,
-        compute_type=args.compute_type,
-    )
+    if step_enabled(args.start_from, "prepare"):
+        print("[1/8] Preparing media")
+        ensure_work_mp4(input_video, work_video, video_encoder=video_encoder)
+        extract_audio(work_video, audio_wav)
 
-    print("[3/8] Running speaker diarization")
-    turns = diarize_audio_pyannote(
-        audio_wav,
-        hf_token=args.hf_token,
-        device=args.device,
-        num_speakers=args.num_speakers,
-        min_speakers=args.min_speakers,
-        max_speakers=args.max_speakers,
-    )
-
-    print("[4/8] Aligning speakers with words")
-    words = assign_speakers_to_words(words, turns)
-    utterances = build_utterances(words, gap_sec=args.transcript_gap)
-    subtitles = build_subtitle_chunks(
-        words,
-        max_chars=args.subtitle_max_chars,
-        max_duration=args.subtitle_max_duration,
-        gap_sec=min(0.7, args.transcript_gap),
-    )
-
-    print("[5/8] Detecting scenes / slides")
-    scenes = detect_scene_boundaries(
-        work_video,
-        fps=fps,
-        detector_name=args.scene_detector,
-        threshold=args.scene_threshold,
-        min_scene_sec=args.min_scene_sec,
-    )
-    scenes = merge_short_scenes(scenes, min_keep_sec=max(args.min_scene_sec, 6.0))
-
-    if args.presentation == "yes":
-        has_presentation = True
-    elif args.presentation == "no":
-        has_presentation = False
+        probe = ffprobe_json(work_video)
+        duration = float(probe["format"]["duration"])
+        vstream = next((s for s in probe.get("streams", []) if s.get("codec_type") == "video"), None)
+        width = int(vstream.get("width", 1920)) if vstream else 1920
+        height = int(vstream.get("height", 1080)) if vstream else 1080
+        fps = parse_fps(vstream.get("r_frame_rate", "25/1")) if vstream else 25.0
+        state.update({
+            "duration_sec": duration,
+            "video": {"width": width, "height": height, "fps": fps},
+        })
+        save_pipeline_state(state_path, state)
     else:
-        has_presentation = decide_has_presentation(scenes, duration)
+        print("[1/8] Skipping media preparation, reusing existing artifacts")
+        duration, width, height, fps = load_prepare_artifacts(state, work_video, audio_wav)
 
-    print(f"[INFO] scenes={len(scenes)} has_presentation={has_presentation}")
+    if step_enabled(args.start_from, "asr"):
+        print("[2/8] Running ASR")
+        asr_words, asr_meta = transcribe_audio_faster_whisper(
+            audio_wav,
+            model_name=args.model,
+            language=args.language,
+            device=args.device,
+            compute_type=args.compute_type,
+        )
+        state.update({
+            "asr_meta": asr_meta,
+            "asr_words": [asdict(x) for x in asr_words],
+        })
+        save_pipeline_state(state_path, state)
+    else:
+        print("[2/8] Skipping ASR, loading cached results")
+        asr_words, asr_meta = load_asr_artifacts(state)
 
-    print("[6/8] Building slide deck")
-    slide_segments = build_slide_deck(
-        scenes=scenes,
-        utterances=utterances,
-        work_video=work_video,
-        out_dir=out_dir,
-        force_single_slide=not has_presentation,
-    )
-    pptx_path = out_dir / "slides.pptx"
-    create_pptx(slide_segments, pptx_path, title=input_video.stem)
+    if step_enabled(args.start_from, "diarize"):
+        print("[3/8] Running speaker diarization")
+        turns = diarize_audio_pyannote(
+            audio_wav,
+            hf_token=args.hf_token,
+            device=args.device,
+            num_speakers=args.num_speakers,
+            min_speakers=args.min_speakers,
+            max_speakers=args.max_speakers,
+        )
+        state["speaker_turns"] = [asdict(x) for x in turns]
+        save_pipeline_state(state_path, state)
+    else:
+        print("[3/8] Skipping diarization, loading cached results")
+        turns = load_diarization_artifacts(state)
 
-    pdf_path = None
-    if args.export_pdf:
-        print("[6b/8] Converting PPTX to PDF")
-        pdf_path = convert_pptx_to_pdf(pptx_path, out_dir)
-        if pdf_path is None:
-            print("[WARN] PDF conversion skipped: 'soffice' not found.")
+    if step_enabled(args.start_from, "align"):
+        print("[4/8] Aligning speakers with words")
+        words = assign_speakers_to_words(asr_words, turns)
+        utterances = build_utterances(words, gap_sec=args.transcript_gap)
+        subtitles = build_subtitle_chunks(
+            words,
+            max_chars=args.subtitle_max_chars,
+            max_duration=args.subtitle_max_duration,
+            gap_sec=min(0.7, args.transcript_gap),
+        )
+        state.update({
+            "words": [asdict(x) for x in words],
+            "utterances": [asdict(x) for x in utterances],
+            "subtitles": [asdict(x) for x in subtitles],
+        })
+        save_pipeline_state(state_path, state)
+    else:
+        print("[4/8] Skipping alignment, loading cached results")
+        words, utterances, subtitles = load_alignment_artifacts(state)
 
-    print("[7/8] Writing transcript and subtitle files")
-    transcript_txt = out_dir / "transcript.txt"
-    transcript_json = out_dir / "transcript.json"
-    srt_path = out_dir / "subtitles.srt"
-    ass_path = out_dir / "subtitles.ass"
+    if step_enabled(args.start_from, "scenes"):
+        print("[5/8] Detecting scenes / slides")
+        scenes = detect_scene_boundaries(
+            work_video,
+            fps=fps,
+            detector_name=args.scene_detector,
+            threshold=args.scene_threshold,
+            min_scene_sec=args.min_scene_sec,
+        )
+        scenes = merge_short_scenes(scenes, min_keep_sec=max(args.min_scene_sec, 6.0))
 
-    write_transcript_txt(utterances, transcript_txt)
-    write_srt(subtitles, srt_path)
-    write_ass(subtitles, ass_path, width=width, height=height)
+        if args.presentation == "yes":
+            has_presentation = True
+        elif args.presentation == "no":
+            has_presentation = False
+        else:
+            has_presentation = decide_has_presentation(scenes, duration)
 
-    payload = {
-        "input_video": str(input_video),
-        "duration_sec": duration,
-        "video": {"width": width, "height": height, "fps": fps},
-        "asr_meta": asr_meta,
-        "speaker_turns": [asdict(x) for x in turns],
-        "words": [asdict(x) for x in words],
-        "utterances": [asdict(x) for x in utterances],
-        "subtitles": [asdict(x) for x in subtitles],
-        "scenes": [list(x) for x in scenes],
-        "slide_segments": [asdict(x) for x in slide_segments],
-    }
-    save_json(payload, transcript_json)
+        print(f"[INFO] scenes={len(scenes)} has_presentation={has_presentation}")
+        state.update({
+            "scenes": [list(x) for x in scenes],
+            "has_presentation": has_presentation,
+        })
+        save_pipeline_state(state_path, state)
+    else:
+        print("[5/8] Skipping scene detection, loading cached results")
+        scenes, has_presentation = load_scene_artifacts(state)
+        print(f"[INFO] scenes={len(scenes)} has_presentation={has_presentation}")
 
-    print("[8/8] Rendering output video")
-    hard_mp4 = out_dir / "video_subtitled.mp4"
-    soft_mp4 = out_dir / "video_softsubs.mp4"
+    pdf_generated = False
+    if step_enabled(args.start_from, "slides"):
+        print("[6/8] Building slide deck")
+        slide_segments = build_slide_deck(
+            scenes=scenes,
+            utterances=utterances,
+            work_video=work_video,
+            out_dir=out_dir,
+            force_single_slide=not has_presentation,
+        )
+        create_pptx(slide_segments, pptx_path, title=input_video.stem)
+
+        if args.export_pdf:
+            print("[6b/8] Converting PPTX to PDF")
+            pdf_result = convert_pptx_to_pdf(pptx_path, out_dir)
+            if pdf_result is None:
+                print("[WARN] PDF conversion skipped: 'soffice' not found.")
+            else:
+                pdf_generated = True
+
+        state["slide_segments"] = [asdict(x) for x in slide_segments]
+        save_pipeline_state(state_path, state)
+    else:
+        print("[6/8] Skipping slide generation, loading cached results")
+        slide_segments = load_slide_artifacts(state, pptx_path, args.export_pdf, pdf_path)
+        pdf_generated = args.export_pdf and pdf_path.exists()
+
+    if step_enabled(args.start_from, "write"):
+        print("[7/8] Writing transcript and subtitle files")
+        write_transcript_txt(utterances, transcript_txt)
+        write_srt(subtitles, srt_path)
+        write_ass(subtitles, ass_path, width=width, height=height)
+
+        payload = {
+            "input_video": str(input_video),
+            "duration_sec": duration,
+            "video": {"width": width, "height": height, "fps": fps},
+            "asr_meta": asr_meta,
+            "speaker_turns": [asdict(x) for x in turns],
+            "words": [asdict(x) for x in words],
+            "utterances": [asdict(x) for x in utterances],
+            "subtitles": [asdict(x) for x in subtitles],
+            "scenes": [list(x) for x in scenes],
+            "has_presentation": has_presentation,
+            "slide_segments": [asdict(x) for x in slide_segments],
+        }
+        save_json(payload, transcript_json)
+        state["transcript_json"] = str(transcript_json)
+        save_pipeline_state(state_path, state)
+    else:
+        print("[7/8] Skipping transcript/subtitle generation, reusing existing files")
+        require_existing_file(srt_path, "subtitles.srt")
+        require_existing_file(ass_path, "subtitles.ass")
 
     hard_ok = False
-    try:
-        burn_subtitles_hard(work_video, ass_path, hard_mp4)
-        hard_ok = True
-    except subprocess.CalledProcessError as e:
-        print("[WARN] Hard subtitles failed. Usually this means ffmpeg build has no libass.")
-        if e.stderr:
-            print(e.stderr)
-
-    mux_subtitles_soft(work_video, srt_path, soft_mp4)
+    if step_enabled(args.start_from, "render"):
+        print("[8/8] Rendering output video")
+        try:
+            burn_subtitles_hard(work_video, ass_path, hard_mp4, video_encoder=video_encoder)
+            hard_ok = True
+        except subprocess.CalledProcessError as e:
+            print("[WARN] Hard subtitles failed. Usually this means ffmpeg build has no libass.")
+            if e.stderr:
+                print(e.stderr)
+        mux_subtitles_soft(work_video, srt_path, soft_mp4)
+    else:
+        print("[8/8] Skipping video rendering, reusing existing outputs")
+        hard_ok = hard_mp4.exists()
+        require_existing_file(soft_mp4, "video_softsubs.mp4")
 
     if not args.keep_work_files:
         shutil.rmtree(work_dir, ignore_errors=True)
 
     print("\nDone.")
-    print(f"Transcript: {transcript_txt}")
-    print(f"Transcript JSON: {transcript_json}")
-    print(f"Slides PPTX: {pptx_path}")
-    if pdf_path:
+    print(f"State JSON: {state_path}")
+    if transcript_txt.exists():
+        print(f"Transcript: {transcript_txt}")
+    if transcript_json.exists():
+        print(f"Transcript JSON: {transcript_json}")
+    if pptx_path.exists():
+        print(f"Slides PPTX: {pptx_path}")
+    if pdf_generated or pdf_path.exists():
         print(f"Slides PDF: {pdf_path}")
     if hard_ok:
         print(f"Hard-sub video: {hard_mp4}")

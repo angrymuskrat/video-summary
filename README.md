@@ -30,6 +30,7 @@
 ### 1) Системные зависимости
 Установи:
 - `ffmpeg`
+  - если хочешь аппаратное сжатие видео на NVIDIA GPU, используй сборку ffmpeg с поддержкой `h264_nvenc` / CUDA
 - (опционально) `libreoffice` / `soffice` — если нужен PDF
 
 ### 2) Python
@@ -63,7 +64,14 @@ export HF_TOKEN=hf_xxx
 ## Быстрый запуск
 
 ```bash
-python meeting_pipeline.py   --input /path/to/meeting.webm   --output-dir /path/to/out   --hf-token "$HF_TOKEN"   --language ru   --presentation auto   --export-pdf
+python meeting_pipeline.py \
+  --input /path/to/meeting.webm \
+  --output-dir /path/to/out \
+  --hf-token "$HF_TOKEN" \
+  --language ru \
+  --presentation auto \
+  --ffmpeg-video-encoder auto \
+  --export-pdf
 ```
 
 ## Полезные флаги
@@ -73,6 +81,10 @@ python meeting_pipeline.py   --input /path/to/meeting.webm   --output-dir /path/
   - `yes`: насильно строить по сценам
   - `no`: всегда один слайд
 - `--model large-v3|distil-large-v3|turbo`
+- `--ffmpeg-video-encoder auto|h264_nvenc|libx264`
+  - `auto`: предпочитает `h264_nvenc`, если он доступен в текущей сборке ffmpeg
+  - `h264_nvenc`: принудительно использовать NVIDIA NVENC для кодирования видео
+  - `libx264`: принудительно использовать CPU-кодирование
 - `--num-speakers N`
 - `--min-speakers N`
 - `--max-speakers N`
@@ -81,6 +93,9 @@ python meeting_pipeline.py   --input /path/to/meeting.webm   --output-dir /path/
 - `--min-scene-sec ...`
 - `--subtitle-max-chars ...`
 - `--subtitle-max-duration ...`
+- `--start-from prepare|asr|diarize|align|scenes|slides|write|render`
+  - позволяет продолжить пайплайн с нужного шага для отладки
+  - для повторного запуска с середины сначала сохрани промежуточные файлы через `--keep-work-files`
 
 ## Примеры
 
@@ -99,8 +114,28 @@ python meeting_pipeline.py   --input demo.webm   --output-dir out_demo   --hf-to
 python meeting_pipeline.py   --input interview.webm   --output-dir out_interview   --hf-token "$HF_TOKEN"   --num-speakers 2
 ```
 
+### Отладка: пересобрать только финальное видео
+```bash
+python meeting_pipeline.py \
+  --input demo.webm \
+  --output-dir out_demo \
+  --start-from render \
+  --keep-work-files
+```
+
+### Отладка: пересчитать сцены и все следующие шаги
+```bash
+python meeting_pipeline.py \
+  --input demo.webm \
+  --output-dir out_demo \
+  --start-from scenes \
+  --keep-work-files
+```
+
 ## Замечания
 
 - Автоопределение "есть ли презентация" — эвристика. Для сложных записей лучше руками переключать `--presentation yes/no`.
+- Для подготовки `work.mp4` и финального hard-sub видео скрипт умеет использовать `h264_nvenc`. В режиме `auto` при недоступности NVENC он автоматически откатывается на `libx264`.
+- Для запуска с середины пайплайна скрипт пишет `pipeline_state.json` в выходную директорию и читает его при `--start-from ...`.
 - Если `ffmpeg` собран без `libass`, hard subtitles могут не собраться. Тогда используй `video_softsubs.mp4`.
 - Для русского текста в PPTX специальных шрифтов этот скрипт не прикладывает; PowerPoint обычно подставит системный шрифт. Если нужен PDF с идеальным типографским контролем, проще конвертировать PPTX через LibreOffice.
