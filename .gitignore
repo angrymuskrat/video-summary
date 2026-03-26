@@ -4,5 +4,6 @@
 .claude
 .codex
 .uv-cache
+.uv-python
 AGENTS.md
 CLAUDE.md

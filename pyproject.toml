@@ -18,5 +18,11 @@ dependencies = [
     "numpy",
 ]
 
+[project.scripts]
+video-summary = "video_summary.main:main"
+
 [tool.poetry]
-package-mode = false
+package-mode = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.0"
