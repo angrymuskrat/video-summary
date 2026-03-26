@@ -24,5 +24,8 @@ video-summary = "video_summary.main:main"
 [tool.poetry]
 package-mode = true
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^9.0.0"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.2,<10.0.0)"
+]
