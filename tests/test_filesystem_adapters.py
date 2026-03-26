@@ -1,3 +1,6 @@
+"""Tests for filesystem adapters behavior in the video summary package."""
+
+
 import json
 
 from video_summary.adapters.readers import FilesystemInputReader
@@ -8,12 +11,22 @@ from video_summary.domain.models import InputSource, PipelineState
 
 
 def make_config(tmp_path):
+    """Create config.
+    
+    Args:
+        tmp_path: Temporary directory fixture provided by pytest.
+    """
     input_path = tmp_path / "meeting.webm"
     input_path.write_text("video", encoding="utf-8")
     return PipelineConfig.from_paths(str(input_path), str(tmp_path / "out"))
 
 
 def test_filesystem_input_reader_returns_resolved_source(tmp_path) -> None:
+    """Test that filesystem input reader returns resolved source.
+    
+    Args:
+        tmp_path: Temporary directory fixture provided by pytest.
+    """
     config = make_config(tmp_path)
 
     source = FilesystemInputReader().load(config)
@@ -23,6 +36,11 @@ def test_filesystem_input_reader_returns_resolved_source(tmp_path) -> None:
 
 
 def test_filesystem_artifact_writer_writes_named_artifacts(tmp_path) -> None:
+    """Test that filesystem artifact writer writes named artifacts.
+    
+    Args:
+        tmp_path: Temporary directory fixture provided by pytest.
+    """
     config = make_config(tmp_path)
     writer = FilesystemArtifactWriter(config)
     writer.ensure_directories()
@@ -36,6 +54,11 @@ def test_filesystem_artifact_writer_writes_named_artifacts(tmp_path) -> None:
 
 
 def test_filesystem_state_store_roundtrip(tmp_path) -> None:
+    """Test that filesystem state store roundtrip.
+    
+    Args:
+        tmp_path: Temporary directory fixture provided by pytest.
+    """
     config = make_config(tmp_path)
     store = FilesystemStateStore(config)
     state = PipelineState(input_source=InputSource(video_path="video.mp4", title="video"))

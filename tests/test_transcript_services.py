@@ -1,8 +1,12 @@
+"""Tests for transcript services behavior in the video summary package."""
+
+
 from video_summary.domain.models import SpeakerTurn, Utterance, WordToken
 from video_summary.services import assign_speakers_to_words, build_subtitle_chunks, build_utterances
 
 
 def test_assign_speakers_to_words_uses_overlap_then_nearest_turn() -> None:
+    """Test that assign speakers to words uses overlap then nearest turn."""
     words = [
         WordToken(0.0, 0.5, "hello"),
         WordToken(1.5, 2.0, "world"),
@@ -20,6 +24,7 @@ def test_assign_speakers_to_words_uses_overlap_then_nearest_turn() -> None:
 
 
 def test_build_utterances_splits_on_speaker_and_gap() -> None:
+    """Test that build utterances splits on speaker and gap."""
     words = [
         WordToken(0.0, 0.4, "hello", 1),
         WordToken(0.5, 0.8, "there", 1),
@@ -37,6 +42,7 @@ def test_build_utterances_splits_on_speaker_and_gap() -> None:
 
 
 def test_build_subtitle_chunks_respects_length_and_speaker_boundaries() -> None:
+    """Test that build subtitle chunks respects length and speaker boundaries."""
     words = [
         WordToken(0.0, 0.4, "hello", 1),
         WordToken(0.5, 0.8, "team", 1),

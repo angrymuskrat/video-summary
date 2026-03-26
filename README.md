@@ -1,46 +1,46 @@
-# Video Summary Library
+# Video Summary
 
-`meeting_pipeline.py` is now a thin compatibility wrapper around the `video_summary` package.
+`video-summary` is a local library for processing meeting recordings into transcripts, summaries, subtitles, and presentation artifacts.
 
-The repository provides a small library for processing online meeting recordings with modular, replaceable components for:
-- input reading
-- media preparation
-- speech-to-text
-- diarization / speaker attribution
-- alignment and transcript assembly
-- scene detection
-- slide binding
-- summarization
-- subtitle generation
-- presentation generation
-- artifact writing
-- state persistence
+The repository is organized around a small core package with pluggable interfaces and concrete adapters for media preparation, ASR, diarization, scene detection, subtitle generation, presentation export, and artifact persistence.
 
-## Layout
+## Entry Points
+
+- `python -m video_summary` runs the package CLI through [`video_summary.main`](./video_summary/main.py).
+- `video_summary.main:main` is exposed as the `video-summary` console script in `pyproject.toml`.
+- [`meeting_pipeline.py`](./meeting_pipeline.py) is a compatibility wrapper that forwards legacy CLI usage to the package entrypoint.
+
+## Repository Layout
 
 ```text
 video_summary/
+  __init__.py
   cli.py
   config.py
   main.py
   orchestrator.py
+  adapters/
   domain/
   interfaces/
-  adapters/
   pipeline/
   services/
 tests/
 meeting_pipeline.py
 ```
 
-Key entrypoints:
-- `video_summary.main:main` for the library CLI
-- `python -m video_summary ...` for module execution
-- `meeting_pipeline.py` for the legacy-compatible wrapper
+Key sections:
 
-## CLI
+- [`video_summary/`](./video_summary/README.md) contains package exports, CLI helpers, configuration, and orchestration code.
+- [`video_summary/adapters/`](./video_summary/adapters/README.md) contains concrete backend integrations.
+- [`video_summary/domain/`](./video_summary/domain/README.md) contains shared dataclasses and pipeline state models.
+- [`video_summary/interfaces/`](./video_summary/interfaces/README.md) contains protocols for pluggable components.
+- [`video_summary/pipeline/`](./video_summary/pipeline/README.md) contains the runtime context and step implementations.
+- [`video_summary/services/`](./video_summary/services/README.md) contains pure helper services.
+- [`tests/`](./tests/README.md) contains unit tests built around fakes and lightweight filesystem assertions.
 
-Legacy usage is preserved:
+## CLI Example
+
+Legacy-compatible wrapper:
 
 ```powershell
 python meeting_pipeline.py `
@@ -79,9 +79,9 @@ state = pipeline.run()
 
 ## Testing
 
-Unit tests are designed to use fakes and mocks instead of real ASR, diarization, scene detection, or PPTX generation backends.
+The test suite is designed around fakes and mock-like adapters, so it does not require real ASR, diarization, scene detection, or PPTX generation services to validate orchestration and filesystem behavior.
 
-Expected command:
+Run:
 
 ```powershell
 pytest -q
@@ -89,6 +89,6 @@ pytest -q
 
 ## Notes
 
-- Filesystem-backed reader, writer, and state store adapters are included.
-- Database-backed reader, writer, and state store adapters are present as extension-point placeholders so the orchestrator does not need to change when a DB backend is added later.
 - The default runtime adapters still target `ffmpeg`, `faster-whisper`, `pyannote.audio`, `scenedetect`, and `python-pptx`.
+- Filesystem-backed reader, writer, and state store adapters are implemented and covered by tests.
+- Database-backed reader, writer, and state store adapters are placeholder extension points, so storage can evolve without changing the orchestrator API.

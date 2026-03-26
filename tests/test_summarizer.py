@@ -1,9 +1,17 @@
+"""Tests for summarizer behavior in the video summary package."""
+
+
 from video_summary.adapters.summarization import BasicSummarizer
 from video_summary.config import PipelineConfig
 from video_summary.domain.models import SceneSegment, Utterance
 
 
 def test_basic_summarizer_extracts_action_items_from_russian_and_english_markers(tmp_path) -> None:
+    """Test that basic summarizer extracts action items from russian and english markers.
+    
+    Args:
+        tmp_path: Temporary directory fixture provided by pytest.
+    """
     input_path = tmp_path / "meeting.webm"
     input_path.write_text("video", encoding="utf-8")
     config = PipelineConfig.from_paths(str(input_path), str(tmp_path / "out"))

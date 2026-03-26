@@ -1,3 +1,6 @@
+"""Concrete implementation of speaker diarization for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 import wave
@@ -12,7 +15,17 @@ from video_summary.domain.models import SpeakerTurn
 
 
 class PyannoteDiarization:
+    """Pyannote diarization."""
     def diarize(self, audio_path: str, config: PipelineConfig) -> list[SpeakerTurn]:
+        """Diarize the requested pipeline data.
+        
+        Args:
+            audio_path (str): Filesystem path for audio.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            list[SpeakerTurn]: Result produced by diarize.
+        """
         import torch
         from pyannote.audio import Pipeline
 

@@ -1,3 +1,6 @@
+"""Protocol definitions for pluggable pipeline components."""
+
+
 from .alignment import AlignmentEngine
 from .asr import ASREngine
 from .diarization import DiarizationEngine

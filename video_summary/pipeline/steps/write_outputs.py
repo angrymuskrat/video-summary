@@ -1,3 +1,6 @@
+"""Pipeline step implementation for write outputs."""
+
+
 from __future__ import annotations
 
 from video_summary.pipeline.context import PipelineContext
@@ -5,9 +8,15 @@ from video_summary.services import render_transcript_text, transcript_payload
 
 
 class WriteOutputsStep:
+    """Pipeline step that handles write outputs."""
     name = "write"
 
     def run(self, context: PipelineContext) -> None:
+        """Run the requested pipeline data.
+        
+        Args:
+            context (PipelineContext): Value for context.
+        """
         prepared_media = context.require_prepared_media()
         alignment = context.require_alignment()
         scene_analysis = context.require_scene_analysis()

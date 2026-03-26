@@ -1,3 +1,6 @@
+"""Concrete implementation of media preparation for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 import json
@@ -16,6 +19,16 @@ def run_command(
     cwd: Optional[Path] = None,
     capture: bool = False,
 ) -> subprocess.CompletedProcess[str]:
+    """Run command.
+    
+    Args:
+        cmd (Sequence[str]): Value for cmd.
+        cwd (Optional[Path]): Optional keyword-only value for cwd.
+        capture (bool): Optional keyword-only value for capture.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: Result produced by run command.
+    """
     kwargs: dict[str, Any] = {
         "cwd": str(cwd) if cwd else None,
         "check": True,
@@ -28,11 +41,24 @@ def run_command(
 
 
 def ensure_tool(name: str) -> None:
+    """Ensure tool.
+    
+    Args:
+        name (str): Value for name.
+    """
     if shutil.which(name) is None:
         raise RuntimeError(f"Required tool '{name}' was not found in PATH.")
 
 
 def ffmpeg_supports_encoder(encoder: str) -> bool:
+    """Ffmpeg supports encoder.
+    
+    Args:
+        encoder (str): Value for encoder.
+    
+    Returns:
+        bool: Result produced by ffmpeg supports encoder.
+    """
     try:
         out = run_command(["ffmpeg", "-hide_banner", "-encoders"], capture=True)
     except subprocess.CalledProcessError:
@@ -41,12 +67,28 @@ def ffmpeg_supports_encoder(encoder: str) -> bool:
 
 
 def resolve_ffmpeg_video_encoder(requested: str) -> str:
+    """Resolve ffmpeg video encoder.
+    
+    Args:
+        requested (str): Value for requested.
+    
+    Returns:
+        str: Result produced by resolve ffmpeg video encoder.
+    """
     if requested == "auto":
         return "h264_nvenc" if ffmpeg_supports_encoder("h264_nvenc") else "libx264"
     return requested
 
 
 def video_encode_args(encoder: str) -> list[str]:
+    """Video encode args.
+    
+    Args:
+        encoder (str): Value for encoder.
+    
+    Returns:
+        list[str]: Result produced by video encode args.
+    """
     if encoder == "h264_nvenc":
         return [
             "-c:v",
@@ -73,6 +115,14 @@ def video_encode_args(encoder: str) -> list[str]:
 
 
 def ffprobe_json(input_path: Path) -> dict[str, Any]:
+    """Ffprobe json.
+    
+    Args:
+        input_path (Path): Filesystem path for input.
+    
+    Returns:
+        dict[str, Any]: Result produced by ffprobe json.
+    """
     out = run_command(
         [
             "ffprobe",
@@ -90,6 +140,14 @@ def ffprobe_json(input_path: Path) -> dict[str, Any]:
 
 
 def parse_fps(r_frame_rate: str) -> float:
+    """Parse fps.
+    
+    Args:
+        r_frame_rate (str): Value for r frame rate.
+    
+    Returns:
+        float: Result produced by parse fps.
+    """
     if not r_frame_rate or r_frame_rate == "0/0":
         return 25.0
     numerator, denominator = r_frame_rate.split("/")
@@ -99,6 +157,13 @@ def parse_fps(r_frame_rate: str) -> float:
 
 
 def ensure_work_mp4(input_video: Path, work_video: Path, video_encoder: str) -> None:
+    """Ensure work mp4.
+    
+    Args:
+        input_video (Path): Value for input video.
+        work_video (Path): Value for work video.
+        video_encoder (str): Value for video encoder.
+    """
     cmd = [
         "ffmpeg",
         "-y",
@@ -140,6 +205,12 @@ def ensure_work_mp4(input_video: Path, work_video: Path, video_encoder: str) -> 
 
 
 def extract_audio(input_media: Path, audio_wav: Path) -> None:
+    """Extract audio.
+    
+    Args:
+        input_media (Path): Value for input media.
+        audio_wav (Path): Value for audio wav.
+    """
     run_command(
         [
             "ffmpeg",
@@ -159,6 +230,13 @@ def extract_audio(input_media: Path, audio_wav: Path) -> None:
 
 
 def extract_frame(video_path: Path, ts_sec: float, out_path: Path) -> None:
+    """Extract frame.
+    
+    Args:
+        video_path (Path): Filesystem path for video.
+        ts_sec (float): Value for ts sec.
+        out_path (Path): Filesystem path for out.
+    """
     run_command(
         [
             "ffmpeg",
@@ -177,19 +255,46 @@ def extract_frame(video_path: Path, ts_sec: float, out_path: Path) -> None:
 
 
 def is_cuda_runtime_error(exc: BaseException) -> bool:
+    """Is cuda runtime error.
+    
+    Args:
+        exc (BaseException): Value for exc.
+    
+    Returns:
+        bool: Result produced by is cuda runtime error.
+    """
     message = str(exc).lower()
     markers = ("cublas", "cudnn", "cuda", "cannot be loaded", "not found", "failed to load")
     return any(marker in message for marker in markers)
 
 
 def normalize_compute_type(device: str, compute_type: str) -> str:
+    """Normalize compute type.
+    
+    Args:
+        device (str): Value for device.
+        compute_type (str): Value for compute type.
+    
+    Returns:
+        str: Result produced by normalize compute type.
+    """
     if device == "cpu" and compute_type in {"float16", "int8_float16", "bfloat16"}:
         return "int8"
     return compute_type
 
 
 class FFmpegMediaPreparator:
+    """F fmpeg media preparator."""
     def prepare(self, source: InputSource, config: PipelineConfig) -> PreparedMedia:
+        """Prepare the requested pipeline data.
+        
+        Args:
+            source (InputSource): Value for source.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            PreparedMedia: Result produced by prepare.
+        """
         layout = config.layout()
         layout.output_dir.mkdir(parents=True, exist_ok=True)
         layout.work_dir.mkdir(parents=True, exist_ok=True)

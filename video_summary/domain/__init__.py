@@ -1,3 +1,6 @@
+"""Domain models shared across the video summary pipeline."""
+
+
 from .models import (
     AlignmentResult,
     ArtifactRecord,

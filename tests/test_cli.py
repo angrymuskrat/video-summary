@@ -1,7 +1,11 @@
+"""Tests for cli behavior in the video summary package."""
+
+
 from video_summary.cli import config_from_args, parse_args
 
 
 def test_cli_parser_keeps_legacy_arguments() -> None:
+    """Test that cli parser keeps legacy arguments."""
     args = parse_args(
         [
             "--input",

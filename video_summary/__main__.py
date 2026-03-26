@@ -1,3 +1,6 @@
+"""Support code for main in the video summary package."""
+
+
 from .main import main
 
 

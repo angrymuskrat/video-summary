@@ -1,3 +1,6 @@
+"""Compatibility wrapper that exposes the package CLI through the legacy script entrypoint."""
+
+
 from video_summary.cli import parse_args
 from video_summary.main import main
 

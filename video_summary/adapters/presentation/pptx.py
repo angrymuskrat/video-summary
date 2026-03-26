@@ -1,3 +1,6 @@
+"""Concrete implementation of presentation generation for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 import shutil
@@ -11,6 +14,18 @@ from video_summary.services import format_ts
 
 
 def add_textbox(slide: object, left: object, top: object, width: object, height: object, text: str, font_size: int = 18, bold: bool = False) -> None:
+    """Add textbox.
+    
+    Args:
+        slide (object): Value for slide.
+        left (object): Value for left.
+        top (object): Value for top.
+        width (object): Value for width.
+        height (object): Value for height.
+        text (str): Value for text.
+        font_size (int): Optional value for font size.
+        bold (bool): Optional value for bold.
+    """
     from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
     from pptx.util import Pt
 
@@ -32,6 +47,15 @@ def add_textbox(slide: object, left: object, top: object, width: object, height:
 
 
 def convert_pptx_to_pdf(pptx_path: Path, output_dir: Path) -> Optional[Path]:
+    """Convert pptx to pdf.
+    
+    Args:
+        pptx_path (Path): Filesystem path for pptx.
+        output_dir (Path): Value for output dir.
+    
+    Returns:
+        Optional[Path]: Result produced by convert pptx to pdf.
+    """
     soffice = shutil.which("soffice")
     if not soffice:
         return None
@@ -52,7 +76,18 @@ def convert_pptx_to_pdf(pptx_path: Path, output_dir: Path) -> Optional[Path]:
 
 
 class PptxPresentationGenerator:
+    """Generator for pptx presentation."""
     def generate(self, slides: list[SceneSegment], title: str, config: PipelineConfig) -> list[ArtifactRecord]:
+        """Generate the requested pipeline data.
+        
+        Args:
+            slides (list[SceneSegment]): Value for slides.
+            title (str): Value for title.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            list[ArtifactRecord]: Result produced by generate.
+        """
         from pptx import Presentation
         from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
         from pptx.util import Inches, Pt

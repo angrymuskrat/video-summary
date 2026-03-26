@@ -1,3 +1,6 @@
+"""Service helpers for transcript."""
+
+
 from __future__ import annotations
 
 import math
@@ -18,6 +21,15 @@ from video_summary.domain.models import (
 
 
 def format_ts(seconds: float, srt: bool = False) -> str:
+    """Format ts.
+    
+    Args:
+        seconds (float): Value for seconds.
+        srt (bool): Optional value for srt.
+    
+    Returns:
+        str: Result produced by format ts.
+    """
     seconds = max(0.0, float(seconds))
     ms = int(round((seconds - math.floor(seconds)) * 1000))
     whole = int(math.floor(seconds))
@@ -31,6 +43,14 @@ def format_ts(seconds: float, srt: bool = False) -> str:
 
 
 def clean_text_spacing(text: str) -> str:
+    """Clean text spacing.
+    
+    Args:
+        text (str): Value for text.
+    
+    Returns:
+        str: Result produced by clean text spacing.
+    """
     text = " ".join(text.strip().split())
     text = text.replace(" ,", ",").replace(" .", ".").replace(" !", "!").replace(" ?", "?")
     text = text.replace(" :", ":").replace(" ;", ";")
@@ -39,10 +59,30 @@ def clean_text_spacing(text: str) -> str:
 
 
 def interval_overlap(a_start: float, a_end: float, b_start: float, b_end: float) -> float:
+    """Interval overlap.
+    
+    Args:
+        a_start (float): Value for a start.
+        a_end (float): Value for a end.
+        b_start (float): Value for b start.
+        b_end (float): Value for b end.
+    
+    Returns:
+        float: Result produced by interval overlap.
+    """
     return max(0.0, min(a_end, b_end) - max(a_start, b_start))
 
 
 def assign_speakers_to_words(words: list[WordToken], turns: list[SpeakerTurn]) -> list[WordToken]:
+    """Assign speakers to words.
+    
+    Args:
+        words (list[WordToken]): Value for words.
+        turns (list[SpeakerTurn]): Value for turns.
+    
+    Returns:
+        list[WordToken]: Result produced by assign speakers to words.
+    """
     copied = [WordToken(word.start, word.end, word.text, word.speaker) for word in words]
     if not turns:
         for word in copied:
@@ -75,6 +115,15 @@ def assign_speakers_to_words(words: list[WordToken], turns: list[SpeakerTurn]) -
 
 
 def build_utterances(words: list[WordToken], gap_sec: float = 0.8) -> list[Utterance]:
+    """Build utterances.
+    
+    Args:
+        words (list[WordToken]): Value for words.
+        gap_sec (float): Optional value for gap sec.
+    
+    Returns:
+        list[Utterance]: Result produced by build utterances.
+    """
     if not words:
         return []
 
@@ -123,6 +172,17 @@ def build_subtitle_chunks(
     max_duration: float = 4.5,
     gap_sec: float = 0.7,
 ) -> list[Utterance]:
+    """Build subtitle chunks.
+    
+    Args:
+        words (list[WordToken]): Value for words.
+        max_chars (int): Optional value for max chars.
+        max_duration (float): Optional value for max duration.
+        gap_sec (float): Optional value for gap sec.
+    
+    Returns:
+        list[Utterance]: Result produced by build subtitle chunks.
+    """
     if not words:
         return []
 
@@ -164,6 +224,16 @@ def render_transcript_text(
     include_roles: bool,
     include_timestamps: bool = True,
 ) -> str:
+    """Render transcript text.
+    
+    Args:
+        utterances (list[Utterance]): Value for utterances.
+        include_roles (bool): Keyword-only value for include roles.
+        include_timestamps (bool): Optional keyword-only value for include timestamps.
+    
+    Returns:
+        str: Result produced by render transcript text.
+    """
     lines: list[str] = []
     for utterance in utterances:
         if include_timestamps:
@@ -192,6 +262,22 @@ def transcript_payload(
     summary: SummaryResult | None,
     artifacts: PipelineArtifacts,
 ) -> dict[str, Any]:
+    """Transcript payload.
+    
+    Args:
+        input_video (str): Keyword-only value for input video.
+        metadata (MediaMetadata): Keyword-only value for metadata.
+        asr_meta (dict[str, Any]): Keyword-only value for asr meta.
+        turns (list[SpeakerTurn]): Keyword-only value for turns.
+        alignment (AlignmentResult): Keyword-only value for alignment.
+        scene_analysis (SceneAnalysis): Keyword-only value for scene analysis.
+        slide_segments (list[SceneSegment]): Keyword-only value for slide segments.
+        summary (SummaryResult | None): Keyword-only value for summary.
+        artifacts (PipelineArtifacts): Keyword-only value for artifacts.
+    
+    Returns:
+        dict[str, Any]: Result produced by transcript payload.
+    """
     payload: dict[str, Any] = {
         "input_video": input_video,
         "duration_sec": metadata.duration_sec,

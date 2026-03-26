@@ -1,3 +1,6 @@
+"""Concrete implementation of scene detection for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,7 +11,18 @@ from video_summary.services import decide_has_presentation, merge_short_scenes
 
 
 class PySceneDetectSceneDetector:
+    """Py scene detect scene detector."""
     def detect(self, video_path: str, metadata: MediaMetadata, config: PipelineConfig) -> SceneAnalysis:
+        """Detect the requested pipeline data.
+        
+        Args:
+            video_path (str): Filesystem path for video.
+            metadata (MediaMetadata): Value for metadata.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            SceneAnalysis: Result produced by detect.
+        """
         from scenedetect import detect
         from scenedetect.detectors import AdaptiveDetector, ContentDetector, HashDetector
 

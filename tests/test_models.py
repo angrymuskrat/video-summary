@@ -1,3 +1,6 @@
+"""Tests for models behavior in the video summary package."""
+
+
 from video_summary.domain.models import (
     AlignmentResult,
     ArtifactRecord,
@@ -17,6 +20,7 @@ from video_summary.domain.models import (
 
 
 def test_pipeline_state_roundtrip() -> None:
+    """Test that pipeline state roundtrip."""
     state = PipelineState(
         input_source=InputSource(video_path="video.mp4", title="video"),
         prepared_media=PreparedMedia(
@@ -45,6 +49,7 @@ def test_pipeline_state_roundtrip() -> None:
 
 
 def test_pipeline_state_supports_legacy_monolith_shape() -> None:
+    """Test that pipeline state supports legacy monolith shape."""
     legacy = {
         "state_version": 1,
         "input_video": "video.mp4",

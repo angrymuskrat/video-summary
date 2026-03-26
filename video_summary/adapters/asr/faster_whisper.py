@@ -1,3 +1,6 @@
+"""Concrete implementation of speech-to-text for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,7 +13,17 @@ from video_summary.services import clean_text_spacing
 
 
 class FasterWhisperASR:
+    """Faster whisper a s r."""
     def transcribe(self, audio_path: str, config: PipelineConfig) -> tuple[list[WordToken], dict[str, Any]]:
+        """Transcribe the requested pipeline data.
+        
+        Args:
+            audio_path (str): Filesystem path for audio.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            tuple[list[WordToken], dict[str, Any]]: Result produced by transcribe.
+        """
         from faster_whisper import WhisperModel
 
         model_name = config.model
@@ -19,6 +32,15 @@ class FasterWhisperASR:
         resolved_compute_type = normalize_compute_type(config.device, config.compute_type)
 
         def run_transcribe(device_name: str, compute_name: str) -> tuple[list[Any], Any]:
+            """Run transcribe.
+            
+            Args:
+                device_name (str): Value for device name.
+                compute_name (str): Value for compute name.
+            
+            Returns:
+                tuple[list[Any], Any]: Result produced by run transcribe.
+            """
             model = WhisperModel(model_name, device=device_name, compute_type=compute_name)
             segments_gen, info_obj = model.transcribe(
                 str(Path(audio_path)),

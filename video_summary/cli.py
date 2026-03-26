@@ -1,3 +1,6 @@
+"""Command-line parsing helpers for configuring and launching the video summary pipeline."""
+
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +11,11 @@ from video_summary.config import PipelineConfig, STEP_ORDER
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser.
+    
+    Returns:
+        argparse.ArgumentParser: Result produced by build parser.
+    """
     parser = argparse.ArgumentParser(description="Local pipeline for meeting video transcription + diarization + slides")
     parser.add_argument("--input", required=True, help="Input video file (.webm, .mp4, ...)")
     parser.add_argument("--output-dir", required=True, help="Output directory")
@@ -44,10 +52,26 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+    """Parse command-line arguments.
+    
+    Args:
+        argv (Optional[Sequence[str]]): Optional value for argv.
+    
+    Returns:
+        argparse.Namespace: Result produced by parse args.
+    """
     return build_parser().parse_args(argv)
 
 
 def config_from_args(args: argparse.Namespace) -> PipelineConfig:
+    """Create pipeline configuration from parsed CLI arguments.
+    
+    Args:
+        args (argparse.Namespace): Value for args.
+    
+    Returns:
+        PipelineConfig: Result produced by config from args.
+    """
     return PipelineConfig.from_paths(
         args.input,
         args.output_dir,

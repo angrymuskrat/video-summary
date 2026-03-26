@@ -1,3 +1,6 @@
+"""Pipeline assembly and orchestration logic for the default meeting-processing flow."""
+
+
 from __future__ import annotations
 
 import shutil
@@ -34,6 +37,7 @@ from video_summary.pipeline.steps import (
 
 
 class MeetingPipeline:
+    """Meeting pipeline."""
     def __init__(
         self,
         config: PipelineConfig,
@@ -52,6 +56,24 @@ class MeetingPipeline:
         presentation_generator: PresentationGenerator,
         video_renderer: VideoRenderer,
     ) -> None:
+        """Initialize the meeting pipeline.
+        
+        Args:
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+            input_reader (InputReader): Keyword-only value for input reader.
+            artifact_writer (ArtifactWriter): Keyword-only value for artifact writer.
+            state_store (StateStore): Keyword-only value for state store.
+            media_preparator (MediaPreparator): Keyword-only value for media preparator.
+            asr_engine (ASREngine): Keyword-only value for asr engine.
+            diarization_engine (DiarizationEngine): Keyword-only value for diarization engine.
+            alignment_engine (AlignmentEngine): Keyword-only value for alignment engine.
+            scene_detector (SceneDetector): Keyword-only value for scene detector.
+            slide_binder (SlideBinder): Keyword-only value for slide binder.
+            summarizer (Summarizer): Keyword-only value for summarizer.
+            subtitle_generator (SubtitleGenerator): Keyword-only value for subtitle generator.
+            presentation_generator (PresentationGenerator): Keyword-only value for presentation generator.
+            video_renderer (VideoRenderer): Keyword-only value for video renderer.
+        """
         self.config = config
         self.input_reader = input_reader
         self.artifact_writer = artifact_writer
@@ -79,6 +101,11 @@ class MeetingPipeline:
         ]
 
     def run(self) -> PipelineState:
+        """Run the configured pipeline.
+        
+        Returns:
+            PipelineState: Result produced by run.
+        """
         self.artifact_writer.ensure_directories()
         input_source = self.input_reader.load(self.config)
 
@@ -145,6 +172,27 @@ def build_default_pipeline(
 ) -> MeetingPipeline:
     # Keep provider-specific imports lazy so package imports and unit tests
     # do not require optional heavy backends until the defaults are instantiated.
+    """Build the default pipeline with concrete adapters.
+    
+    Args:
+        config (PipelineConfig): Pipeline configuration to use for the operation.
+        input_reader (InputReader | None): Optional keyword-only value for input reader.
+        artifact_writer (ArtifactWriter | None): Optional keyword-only value for artifact writer.
+        state_store (StateStore | None): Optional keyword-only value for state store.
+        media_preparator (MediaPreparator | None): Optional keyword-only value for media preparator.
+        asr_engine (ASREngine | None): Optional keyword-only value for asr engine.
+        diarization_engine (DiarizationEngine | None): Optional keyword-only value for diarization engine.
+        alignment_engine (AlignmentEngine | None): Optional keyword-only value for alignment engine.
+        scene_detector (SceneDetector | None): Optional keyword-only value for scene detector.
+        slide_binder (SlideBinder | None): Optional keyword-only value for slide binder.
+        summarizer (Summarizer | None): Optional keyword-only value for summarizer.
+        subtitle_generator (SubtitleGenerator | None): Optional keyword-only value for subtitle generator.
+        presentation_generator (PresentationGenerator | None): Optional keyword-only value for presentation generator.
+        video_renderer (VideoRenderer | None): Optional keyword-only value for video renderer.
+    
+    Returns:
+        MeetingPipeline: Result produced by build default pipeline.
+    """
     from video_summary.adapters.alignment import DefaultAlignmentEngine
     from video_summary.adapters.asr import FasterWhisperASR
     from video_summary.adapters.diarization import PyannoteDiarization

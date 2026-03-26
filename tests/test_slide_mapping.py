@@ -1,8 +1,12 @@
+"""Tests for slide mapping behavior in the video summary package."""
+
+
 from video_summary.domain.models import SceneAnalysis, SceneBoundary, Utterance
 from video_summary.services import build_slide_segments, merge_short_scenes
 
 
 def test_merge_short_scenes_collapses_short_segments_into_next_scene() -> None:
+    """Test that merge short scenes collapses short segments into next scene."""
     scenes = [SceneBoundary(0.0, 2.0), SceneBoundary(2.0, 10.0), SceneBoundary(10.0, 12.0)]
 
     merged = merge_short_scenes(scenes, min_keep_sec=5.0)
@@ -11,9 +15,19 @@ def test_merge_short_scenes_collapses_short_segments_into_next_scene() -> None:
 
 
 def test_build_slide_segments_creates_single_slide_without_presentation() -> None:
+    """Test that build slide segments creates single slide without presentation."""
     extracted: list[tuple[int, float]] = []
 
     def fake_extract(index: int, timestamp: float) -> str:
+        """Fake extract.
+        
+        Args:
+            index (int): Value for index.
+            timestamp (float): Value for timestamp.
+        
+        Returns:
+            str: Result produced by fake extract.
+        """
         extracted.append((index, timestamp))
         return f"frame-{index}.jpg"
 
@@ -30,7 +44,17 @@ def test_build_slide_segments_creates_single_slide_without_presentation() -> Non
 
 
 def test_build_slide_segments_binds_overlapping_utterances_to_each_scene() -> None:
+    """Test that build slide segments binds overlapping utterances to each scene."""
     def fake_extract(index: int, timestamp: float) -> str:
+        """Fake extract.
+        
+        Args:
+            index (int): Value for index.
+            timestamp (float): Value for timestamp.
+        
+        Returns:
+            str: Result produced by fake extract.
+        """
         return f"scene-{index}@{timestamp:.1f}.jpg"
 
     slides = build_slide_segments(

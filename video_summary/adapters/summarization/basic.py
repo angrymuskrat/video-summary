@@ -1,3 +1,6 @@
+"""Concrete implementation of meeting summarization for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 from video_summary.config import PipelineConfig
@@ -5,6 +8,15 @@ from video_summary.domain.models import SceneSegment, SummaryResult, Utterance
 
 
 def _trim(text: str, limit: int = 120) -> str:
+    """Trim.
+    
+    Args:
+        text (str): Value for text.
+        limit (int): Optional value for limit.
+    
+    Returns:
+        str: Result produced by trim.
+    """
     text = " ".join(text.split())
     if len(text) <= limit:
         return text
@@ -12,12 +24,23 @@ def _trim(text: str, limit: int = 120) -> str:
 
 
 class BasicSummarizer:
+    """Basic summarizer."""
     def summarize(
         self,
         utterances: list[Utterance],
         slides: list[SceneSegment],
         config: PipelineConfig,
     ) -> SummaryResult:
+        """Summarize the requested pipeline data.
+        
+        Args:
+            utterances (list[Utterance]): Value for utterances.
+            slides (list[SceneSegment]): Value for slides.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            SummaryResult: Result produced by summarize.
+        """
         speakers = sorted({utterance.speaker for utterance in utterances})
         overview = (
             f"Processed {len(utterances)} utterances from {len(speakers) or 0} speakers, "

@@ -1,3 +1,6 @@
+"""Package exports for the video_summary.adapters.media namespace."""
+
+
 from .ffmpeg import (
     FFmpegMediaPreparator,
     ensure_tool,

@@ -1,3 +1,6 @@
+"""Configuration models and output path layout helpers for pipeline runs."""
+
+
 from __future__ import annotations
 
 import os
@@ -21,6 +24,26 @@ STEP_NUMBERS = {name: index for index, name in enumerate(STEP_ORDER, start=1)}
 
 @dataclass(frozen=True)
 class OutputLayout:
+    """Output layout.
+    
+    Attributes:
+        output_dir (Path): Stored value for output dir.
+        work_dir (Path): Stored value for work dir.
+        frames_dir (Path): Stored value for frames dir.
+        state_path (Path): Stored value for state path.
+        work_video (Path): Stored value for work video.
+        audio_wav (Path): Stored value for audio wav.
+        transcript_txt (Path): Stored value for transcript txt.
+        transcript_with_roles_txt (Path): Stored value for transcript with roles txt.
+        summary_md (Path): Stored value for summary md.
+        transcript_json (Path): Stored value for transcript json.
+        subtitles_srt (Path): Stored value for subtitles srt.
+        subtitles_ass (Path): Stored value for subtitles ass.
+        video_subtitled_mp4 (Path): Stored value for video subtitled mp4.
+        video_softsubs_mp4 (Path): Stored value for video softsubs mp4.
+        slides_pptx (Path): Stored value for slides pptx.
+        slides_pdf (Path): Stored value for slides pdf.
+    """
     output_dir: Path
     work_dir: Path
     frames_dir: Path
@@ -41,6 +64,32 @@ class OutputLayout:
 
 @dataclass(frozen=True)
 class PipelineConfig:
+    """Pipeline config.
+    
+    Attributes:
+        input_path (Path): Stored value for input path.
+        output_dir (Path): Stored value for output dir.
+        hf_token (Optional[str]): Stored value for hf token.
+        language (Optional[str]): Stored value for language.
+        model (str): Stored value for model.
+        device (str): Stored value for device.
+        compute_type (str): Stored value for compute type.
+        ffmpeg_video_encoder (str): Stored value for ffmpeg video encoder.
+        presentation (str): Stored value for presentation.
+        scene_detector (str): Stored value for scene detector.
+        scene_threshold (Optional[float]): Stored value for scene threshold.
+        min_scene_sec (float): Stored value for min scene sec.
+        num_speakers (Optional[int]): Stored value for num speakers.
+        min_speakers (Optional[int]): Stored value for min speakers.
+        max_speakers (Optional[int]): Stored value for max speakers.
+        subtitle_max_chars (int): Stored value for subtitle max chars.
+        subtitle_max_duration (float): Stored value for subtitle max duration.
+        transcript_gap (float): Stored value for transcript gap.
+        start_from (str): Stored value for start from.
+        export_pdf (bool): Stored value for export pdf.
+        keep_work_files (bool): Stored value for keep work files.
+        audio_path (Optional[Path]): Stored value for audio path.
+    """
     input_path: Path
     output_dir: Path
     hf_token: Optional[str] = None
@@ -65,6 +114,7 @@ class PipelineConfig:
     audio_path: Optional[Path] = None
 
     def __post_init__(self) -> None:
+        """Validate and normalize dataclass state after initialization."""
         if self.start_from not in STEP_NUMBERS:
             raise ValueError(f"Unknown start_from step: {self.start_from}")
 
@@ -77,6 +127,17 @@ class PipelineConfig:
         hf_token: Optional[str] = None,
         **kwargs: object,
     ) -> "PipelineConfig":
+        """Create a pipeline config from paths.
+        
+        Args:
+            input_path (str): Filesystem path for input.
+            output_dir (str): Value for output dir.
+            hf_token (Optional[str]): Optional keyword-only value for hf token.
+            **kwargs (object): Additional keyword arguments.
+        
+        Returns:
+            'PipelineConfig': Result produced by from paths.
+        """
         return cls(
             input_path=Path(input_path).expanduser().resolve(),
             output_dir=Path(output_dir).expanduser().resolve(),
@@ -85,6 +146,11 @@ class PipelineConfig:
         )
 
     def layout(self) -> OutputLayout:
+        """Build the output layout for the configured run.
+        
+        Returns:
+            OutputLayout: Result produced by layout.
+        """
         work_dir = self.output_dir / "_work"
         return OutputLayout(
             output_dir=self.output_dir,
@@ -106,4 +172,12 @@ class PipelineConfig:
         )
 
     def step_enabled(self, step_name: str) -> bool:
+        """Return whether the named step should run.
+        
+        Args:
+            step_name (str): Value for step name.
+        
+        Returns:
+            bool: Result produced by step enabled.
+        """
         return STEP_NUMBERS[self.start_from] <= STEP_NUMBERS[step_name]

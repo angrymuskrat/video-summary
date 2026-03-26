@@ -1,3 +1,6 @@
+"""Concrete implementation of input reading for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,7 +10,16 @@ from video_summary.domain.models import InputSource
 
 
 class FilesystemInputReader:
+    """Input reader for filesystem input."""
     def load(self, config: PipelineConfig) -> InputSource:
+        """Load the requested pipeline data.
+        
+        Args:
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            InputSource: Result produced by load.
+        """
         input_path = Path(config.input_path).expanduser().resolve()
         if not input_path.exists():
             raise FileNotFoundError(input_path)

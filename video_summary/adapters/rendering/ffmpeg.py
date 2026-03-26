@@ -1,3 +1,6 @@
+"""Concrete implementation of video rendering for the video summary pipeline."""
+
+
 from __future__ import annotations
 
 import subprocess
@@ -9,7 +12,17 @@ from video_summary.domain.models import ArtifactRecord, PreparedMedia
 
 
 class FFmpegVideoRenderer:
+    """F fmpeg video renderer."""
     def render(self, prepared_media: PreparedMedia, config: PipelineConfig) -> list[ArtifactRecord]:
+        """Render the requested pipeline data.
+        
+        Args:
+            prepared_media (PreparedMedia): Value for prepared media.
+            config (PipelineConfig): Pipeline configuration to use for the operation.
+        
+        Returns:
+            list[ArtifactRecord]: Result produced by render.
+        """
         layout = config.layout()
         layout.output_dir.mkdir(parents=True, exist_ok=True)
         video_encoder = resolve_ffmpeg_video_encoder(config.ffmpeg_video_encoder)
@@ -27,6 +40,14 @@ class FFmpegVideoRenderer:
         return artifacts
 
     def _burn_subtitles_hard(self, work_video: Path, ass_file: Path, output_video: Path, video_encoder: str) -> None:
+        """Burn subtitles hard.
+        
+        Args:
+            work_video (Path): Value for work video.
+            ass_file (Path): Value for ass file.
+            output_video (Path): Value for output video.
+            video_encoder (str): Value for video encoder.
+        """
         cmd = [
             "ffmpeg",
             "-y",
@@ -63,6 +84,13 @@ class FFmpegVideoRenderer:
             run_command(fallback_cmd, cwd=ass_file.parent)
 
     def _mux_subtitles_soft(self, work_video: Path, srt_file: Path, output_video: Path) -> None:
+        """Mux subtitles soft.
+        
+        Args:
+            work_video (Path): Value for work video.
+            srt_file (Path): Value for srt file.
+            output_video (Path): Value for output video.
+        """
         run_command(
             [
                 "ffmpeg",

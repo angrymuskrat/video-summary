@@ -1,3 +1,6 @@
+"""Service helpers for slide mapping."""
+
+
 from __future__ import annotations
 
 from typing import Callable
@@ -7,6 +10,15 @@ from video_summary.services.transcript import interval_overlap
 
 
 def merge_short_scenes(scenes: list[SceneBoundary], min_keep_sec: float) -> list[SceneBoundary]:
+    """Merge short scenes.
+    
+    Args:
+        scenes (list[SceneBoundary]): Value for scenes.
+        min_keep_sec (float): Value for min keep sec.
+    
+    Returns:
+        list[SceneBoundary]: Result produced by merge short scenes.
+    """
     if not scenes:
         return []
 
@@ -23,6 +35,15 @@ def merge_short_scenes(scenes: list[SceneBoundary], min_keep_sec: float) -> list
 
 
 def decide_has_presentation(scenes: list[SceneBoundary], total_duration: float) -> bool:
+    """Decide has presentation.
+    
+    Args:
+        scenes (list[SceneBoundary]): Value for scenes.
+        total_duration (float): Value for total duration.
+    
+    Returns:
+        bool: Result produced by decide has presentation.
+    """
     if len(scenes) < 2:
         return False
     long_scenes = [scene for scene in scenes if (scene.end - scene.start) >= 8.0]
@@ -36,6 +57,17 @@ def utterances_overlapping(
     end: float,
     pad: float = 1.0,
 ) -> list[Utterance]:
+    """Utterances overlapping.
+    
+    Args:
+        utterances (list[Utterance]): Value for utterances.
+        start (float): Value for start.
+        end (float): Value for end.
+        pad (float): Optional value for pad.
+    
+    Returns:
+        list[Utterance]: Result produced by utterances overlapping.
+    """
     query_start = max(0.0, start - pad)
     query_end = end + pad
     return [
@@ -46,6 +78,15 @@ def utterances_overlapping(
 
 
 def trim_slide_text(text: str, max_chars: int = 1700) -> str:
+    """Trim slide text.
+    
+    Args:
+        text (str): Value for text.
+        max_chars (int): Optional value for max chars.
+    
+    Returns:
+        str: Result produced by trim slide text.
+    """
     text = text.strip()
     if len(text) <= max_chars:
         return text
@@ -59,6 +100,17 @@ def build_slide_segments(
     *,
     extract_frame: Callable[[int, float], str],
 ) -> list[SceneSegment]:
+    """Build slide segments.
+    
+    Args:
+        scene_analysis (SceneAnalysis): Value for scene analysis.
+        utterances (list[Utterance]): Value for utterances.
+        duration_sec (float): Value for duration sec.
+        extract_frame (Callable[[int, float], str]): Keyword-only value for extract frame.
+    
+    Returns:
+        list[SceneSegment]: Result produced by build slide segments.
+    """
     if not scene_analysis.has_presentation or not scene_analysis.scenes:
         frame_path = extract_frame(1, duration_sec / 2.0)
         text = "\n".join(f"[{utterance.speaker}] {utterance.text}" for utterance in utterances)

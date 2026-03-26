@@ -1,3 +1,6 @@
+"""Pure services that assemble transcripts and map slides to speech segments."""
+
+
 from .slide_mapping import (
     build_slide_segments,
     decide_has_presentation,
