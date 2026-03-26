@@ -1,2 +1,8 @@
 .idea
 .agents
+.agent
+.claude
+.codex
+.uv-cache
+AGENTS.md
+CLAUDE.md
