@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>video-summary | Artifacts</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body data-page="artifacts">
+    <div class="page-shell">
+      <nav class="nav">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark">VS</span>
+          <span class="brand-copy">
+            <strong>video-summary</strong>
+            <small>artifact browser</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a data-page="upload" href="/index.html">Upload</a>
+          <a data-page="status" href="/status.html">Status</a>
+          <a data-page="artifacts" href="/artifacts.html">Artifacts</a>
+          <a data-page="help" href="/help.html">How To Use</a>
+        </div>
+      </nav>
+
+      <section class="hero-card" style="margin-bottom:22px;">
+        <div class="eyebrow">Browse outputs by job ID</div>
+        <h1 class="section-title">Artifact viewer</h1>
+        <p class="muted">Load any finished or in-progress job to see generated files. Text and JSON artifacts can be previewed directly in the browser.</p>
+        <form id="artifact-form" class="hero-actions">
+          <input id="artifact-job-id" name="job_id" class="code" placeholder="Paste job id">
+          <button class="primary" type="submit">Load Artifacts</button>
+        </form>
+      </section>
+
+      <section class="two-column">
+        <div class="card">
+          <h2 class="section-title">Artifact list</h2>
+          <div id="artifact-output" class="empty-box">No job loaded yet.</div>
+        </div>
+        <div class="card">
+          <h2 id="artifact-preview-title" class="section-title">Preview</h2>
+          <pre id="artifact-preview-body" class="preview-box">Choose a text or JSON artifact to inspect it here.</pre>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

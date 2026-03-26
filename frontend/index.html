@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>video-summary | Upload</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body data-page="upload">
+    <div class="page-shell">
+      <nav class="nav">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark">VS</span>
+          <span class="brand-copy">
+            <strong>video-summary</strong>
+            <small>dockerized web wrapper for the meeting pipeline</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a data-page="upload" href="/index.html">Upload</a>
+          <a data-page="status" href="/status.html">Status</a>
+          <a data-page="artifacts" href="/artifacts.html">Artifacts</a>
+          <a data-page="help" href="/help.html">How To Use</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <article class="hero-card">
+          <div class="eyebrow">Backend + frontend + database</div>
+          <div class="hero-copy">
+            <h1>Ship a file, get a job ID, watch the pipeline breathe.</h1>
+            <p>
+              Upload a meeting recording, tune the pipeline from the browser, then monitor status and browse generated
+              artifacts by the same stable job ID.
+            </p>
+          </div>
+          <div class="hero-grid">
+            <div class="stat-pill">
+              <strong id="retention-copy">—</strong>
+              <span>artifact retention</span>
+            </div>
+            <div class="stat-pill">
+              <strong>UUID</strong>
+              <span>job tracking key</span>
+            </div>
+            <div class="stat-pill">
+              <strong id="openai-copy">—</strong>
+              <span>OpenAI summary mode</span>
+            </div>
+          </div>
+        </article>
+
+        <aside class="hero-side hero-card">
+          <div class="hero-note">
+            <strong>What the upload page controls</strong>
+            <p class="muted">Every public pipeline launch parameter stays here: dropdowns, numeric tuning, and flags.</p>
+          </div>
+          <div class="hero-note">
+            <strong>What stays server-side</strong>
+            <p class="muted">OpenAI API key, model, base URL, retention policy, storage, and database connectivity.</p>
+          </div>
+          <div class="hero-actions">
+            <a class="button secondary" href="/status.html">Monitor an existing job</a>
+          </div>
+        </aside>
+      </section>
+
+      <section class="content-grid">
+        <div id="upload-app"></div>
+        <aside>
+          <div id="upload-result" class="panel">
+            <h2 class="section-title">Submission result</h2>
+            <div class="empty-box">The API response with your job ID will appear here right after upload.</div>
+          </div>
+        </aside>
+      </section>
+
+      <p class="footer">Use the same job ID on the status and artifacts pages.</p>
+    </div>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

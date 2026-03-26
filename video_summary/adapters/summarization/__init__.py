@@ -2,5 +2,6 @@
 
 
 from .basic import BasicSummarizer
+from .openai import OpenAISummarizer
 
-__all__ = ["BasicSummarizer"]
+__all__ = ["BasicSummarizer", "OpenAISummarizer"]

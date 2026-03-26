@@ -9,11 +9,11 @@ from video_summary.domain.models import SceneSegment, SummaryResult, Utterance
 
 def _trim(text: str, limit: int = 120) -> str:
     """Trim.
-    
+
     Args:
         text (str): Value for text.
         limit (int): Optional value for limit.
-    
+
     Returns:
         str: Result produced by trim.
     """
@@ -25,6 +25,7 @@ def _trim(text: str, limit: int = 120) -> str:
 
 class BasicSummarizer:
     """Basic summarizer."""
+
     def summarize(
         self,
         utterances: list[Utterance],
@@ -32,12 +33,12 @@ class BasicSummarizer:
         config: PipelineConfig,
     ) -> SummaryResult:
         """Summarize the requested pipeline data.
-        
+
         Args:
             utterances (list[Utterance]): Value for utterances.
             slides (list[SceneSegment]): Value for slides.
             config (PipelineConfig): Pipeline configuration to use for the operation.
-        
+
         Returns:
             SummaryResult: Result produced by summarize.
         """
@@ -57,10 +58,10 @@ class BasicSummarizer:
             "need",
             "needs",
             "should",
-            "нужно",
-            "надо",
-            "сделать",
-            "договорились",
+            "\u043d\u0443\u0436\u043d\u043e",
+            "\u043d\u0430\u0434\u043e",
+            "\u0441\u0434\u0435\u043b\u0430\u0442\u044c",
+            "\u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0438\u043b\u0438\u0441\u044c",
         )
         action_items = [
             _trim(utterance.text)

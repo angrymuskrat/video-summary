@@ -48,6 +48,8 @@ def test_cli_parser_keeps_legacy_arguments() -> None:
             "align",
             "--export-pdf",
             "--keep-work-files",
+            "--summarizer-provider",
+            "openai",
         ]
     )
 
@@ -58,3 +60,4 @@ def test_cli_parser_keeps_legacy_arguments() -> None:
     assert config.start_from == "align"
     assert config.export_pdf is True
     assert config.keep_work_files is True
+    assert config.summarizer_provider == "openai"

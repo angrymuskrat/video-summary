@@ -16,10 +16,16 @@ dependencies = [
     "Pillow",
     "tqdm",
     "numpy",
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "python-multipart",
+    "psycopg[binary]",
 ]
 
 [project.scripts]
 video-summary = "video_summary.main:main"
+video-summary-api = "video_summary.webapp.app:run"
 
 [tool.poetry]
 package-mode = true
@@ -27,5 +33,6 @@ package-mode = true
 
 [dependency-groups]
 dev = [
-    "pytest (>=9.0.2,<10.0.0)"
+    "pytest (>=9.0.2,<10.0.0)",
+    "httpx (>=0.28.1,<1.0.0)",
 ]

@@ -89,6 +89,11 @@ class PipelineConfig:
         export_pdf (bool): Stored value for export pdf.
         keep_work_files (bool): Stored value for keep work files.
         audio_path (Optional[Path]): Stored value for audio path.
+        summarizer_provider (str): Stored value for summarizer provider.
+        openai_api_key (Optional[str]): Stored value for openai api key.
+        openai_model (Optional[str]): Stored value for openai model.
+        openai_base_url (Optional[str]): Stored value for openai base url.
+        openai_timeout_sec (float): Stored value for openai timeout sec.
     """
     input_path: Path
     output_dir: Path
@@ -112,11 +117,18 @@ class PipelineConfig:
     export_pdf: bool = False
     keep_work_files: bool = False
     audio_path: Optional[Path] = None
+    summarizer_provider: str = "basic"
+    openai_api_key: Optional[str] = None
+    openai_model: Optional[str] = None
+    openai_base_url: Optional[str] = None
+    openai_timeout_sec: float = 60.0
 
     def __post_init__(self) -> None:
         """Validate and normalize dataclass state after initialization."""
         if self.start_from not in STEP_NUMBERS:
             raise ValueError(f"Unknown start_from step: {self.start_from}")
+        if self.summarizer_provider not in {"basic", "openai"}:
+            raise ValueError(f"Unknown summarizer_provider: {self.summarizer_provider}")
 
     @classmethod
     def from_paths(
@@ -142,6 +154,13 @@ class PipelineConfig:
             input_path=Path(input_path).expanduser().resolve(),
             output_dir=Path(output_dir).expanduser().resolve(),
             hf_token=hf_token if hf_token is not None else os.environ.get("HF_TOKEN"),
+            openai_api_key=str(kwargs.pop("openai_api_key", os.environ.get("OPENAI_API_KEY") or "")) or None,
+            openai_model=str(kwargs.pop("openai_model", os.environ.get("OPENAI_MODEL") or "")) or None,
+            openai_base_url=str(kwargs.pop("openai_base_url", os.environ.get("OPENAI_BASE_URL") or "")) or None,
+            summarizer_provider=str(
+                kwargs.pop("summarizer_provider", os.environ.get("VIDEO_SUMMARY_SUMMARIZER_PROVIDER") or "basic")
+            ),
+            openai_timeout_sec=float(kwargs.pop("openai_timeout_sec", os.environ.get("OPENAI_TIMEOUT_SEC", 60.0))),
             **kwargs,
         )
 

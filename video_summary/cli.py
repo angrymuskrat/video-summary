@@ -48,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--export-pdf", action="store_true")
     parser.add_argument("--keep-work-files", action="store_true")
+    parser.add_argument(
+        "--summarizer-provider",
+        default=os.environ.get("VIDEO_SUMMARY_SUMMARIZER_PROVIDER", "basic"),
+        choices=["basic", "openai"],
+        help="Summary backend: a local heuristic summarizer or an OpenAI-backed transcript summarizer.",
+    )
     return parser
 
 
@@ -94,4 +100,5 @@ def config_from_args(args: argparse.Namespace) -> PipelineConfig:
         start_from=args.start_from,
         export_pdf=args.export_pdf,
         keep_work_files=args.keep_work_files,
+        summarizer_provider=args.summarizer_provider,
     )

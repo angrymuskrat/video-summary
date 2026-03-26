@@ -1,0 +1,12 @@
+.git
+.idea
+.agent
+.agents
+.claude
+.codex
+.pytest_cache
+__pycache__
+*.pyc
+test.webm
+test1.webm
+data

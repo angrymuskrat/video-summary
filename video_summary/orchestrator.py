@@ -143,6 +143,9 @@ class MeetingPipeline:
 
         for step in self.steps:
             if self.config.step_enabled(step.name):
+                mark_step_started = getattr(self.state_store, "mark_step_started", None)
+                if callable(mark_step_started):
+                    mark_step_started(step.name)
                 step.run(context)
                 context.state.start_from = step.name
                 self.state_store.save(context.state)
@@ -204,8 +207,16 @@ def build_default_pipeline(
     from video_summary.adapters.slide_binding import DefaultSlideBinder
     from video_summary.adapters.state_store import FilesystemStateStore
     from video_summary.adapters.subtitles import StandardSubtitleGenerator
-    from video_summary.adapters.summarization import BasicSummarizer
+    from video_summary.adapters.summarization import BasicSummarizer, OpenAISummarizer
     from video_summary.adapters.writers import FilesystemArtifactWriter
+
+    resolved_summarizer: Summarizer
+    if summarizer is not None:
+        resolved_summarizer = summarizer
+    elif config.summarizer_provider == "openai":
+        resolved_summarizer = OpenAISummarizer()
+    else:
+        resolved_summarizer = BasicSummarizer()
 
     return MeetingPipeline(
         config,
@@ -218,7 +229,7 @@ def build_default_pipeline(
         alignment_engine=alignment_engine or DefaultAlignmentEngine(),
         scene_detector=scene_detector or PySceneDetectSceneDetector(),
         slide_binder=slide_binder or DefaultSlideBinder(),
-        summarizer=summarizer or BasicSummarizer(),
+        summarizer=resolved_summarizer,
         subtitle_generator=subtitle_generator or StandardSubtitleGenerator(),
         presentation_generator=presentation_generator or PptxPresentationGenerator(),
         video_renderer=video_renderer or FFmpegVideoRenderer(),

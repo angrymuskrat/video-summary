@@ -5,3 +5,8 @@ python-pptx
 Pillow
 tqdm
 numpy
+fastapi
+uvicorn
+sqlalchemy
+python-multipart
+psycopg[binary]

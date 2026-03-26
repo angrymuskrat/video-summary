@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>video-summary | Status</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body data-page="status">
+    <div class="page-shell">
+      <nav class="nav">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark">VS</span>
+          <span class="brand-copy">
+            <strong>video-summary</strong>
+            <small>job monitoring dashboard</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a data-page="upload" href="/index.html">Upload</a>
+          <a data-page="status" href="/status.html">Status</a>
+          <a data-page="artifacts" href="/artifacts.html">Artifacts</a>
+          <a data-page="help" href="/help.html">How To Use</a>
+        </div>
+      </nav>
+
+      <section class="hero-card" style="margin-bottom:22px;">
+        <div class="eyebrow">Track progress by ID</div>
+        <h1 class="section-title">Status lookup</h1>
+        <p class="muted">Paste the job ID you received after upload. The page will auto-refresh while the pipeline is queued or running.</p>
+        <form id="status-form" class="hero-actions">
+          <input id="status-job-id" name="job_id" class="code" placeholder="Paste job id">
+          <button class="primary" type="submit">Fetch Status</button>
+        </form>
+      </section>
+
+      <section id="status-output">
+        <div class="empty-box">No job loaded yet.</div>
+      </section>
+    </div>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

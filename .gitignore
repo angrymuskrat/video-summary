@@ -7,3 +7,6 @@
 .uv-python
 AGENTS.md
 CLAUDE.md
+.pytest_cache
+__pycache__/
+*.pyc
