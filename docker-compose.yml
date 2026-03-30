@@ -18,15 +18,44 @@ services:
       VIDEO_SUMMARY_ARTIFACT_RETENTION_HOURS: ${VIDEO_SUMMARY_ARTIFACT_RETENTION_HOURS:-168}
       VIDEO_SUMMARY_CLEANUP_INTERVAL_SECONDS: ${VIDEO_SUMMARY_CLEANUP_INTERVAL_SECONDS:-1800}
       VIDEO_SUMMARY_FRONTEND_ORIGIN: http://localhost:8080
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-nano}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local-vllm}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://vllm:8000/v1}
       OPENAI_TIMEOUT_SEC: ${OPENAI_TIMEOUT_SEC:-60}
       HF_TOKEN: ${HF_TOKEN:-}
+      VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
     volumes:
       - app-data:/app/data
     depends_on:
       - db
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    profiles:
+      - llm
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ${VLLM_CACHE_DIR:-./docker/models/huggingface}:/root/.cache/huggingface
+    ports:
+      - "${VLLM_HOST_PORT:-8000}:8000"
+    ipc: host
+    gpus: all
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --model
+      - ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+      - --api-key
+      - ${VLLM_API_KEY:-local-vllm}
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN:-16384}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.92}
+      - --quantization
+      - ${VLLM_QUANTIZATION:-awq}
 
   frontend:
     build:

@@ -22,6 +22,23 @@ STEP_ORDER = (
 STEP_NUMBERS = {name: index for index, name in enumerate(STEP_ORDER, start=1)}
 
 
+def _first_env(*names: str) -> str | None:
+    """Return the first non-empty environment variable from the provided names."""
+    for name in names:
+        value = os.environ.get(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
+def _optional_text(value: object | None) -> str | None:
+    """Normalize an optional value to a stripped string or None."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 @dataclass(frozen=True)
 class OutputLayout:
     """Output layout.
@@ -154,12 +171,13 @@ class PipelineConfig:
             input_path=Path(input_path).expanduser().resolve(),
             output_dir=Path(output_dir).expanduser().resolve(),
             hf_token=hf_token if hf_token is not None else os.environ.get("HF_TOKEN"),
-            openai_api_key=str(kwargs.pop("openai_api_key", os.environ.get("OPENAI_API_KEY") or "")) or None,
-            openai_model=str(kwargs.pop("openai_model", os.environ.get("OPENAI_MODEL") or "")) or None,
-            openai_base_url=str(kwargs.pop("openai_base_url", os.environ.get("OPENAI_BASE_URL") or "")) or None,
-            summarizer_provider=str(
-                kwargs.pop("summarizer_provider", os.environ.get("VIDEO_SUMMARY_SUMMARIZER_PROVIDER") or "basic")
-            ),
+            openai_api_key=_optional_text(kwargs.pop("openai_api_key", _first_env("OPENAI_API_KEY"))),
+            openai_model=_optional_text(kwargs.pop("openai_model", _first_env("OPENAI_MODEL", "VLLM_MODEL"))),
+            openai_base_url=_optional_text(kwargs.pop("openai_base_url", _first_env("OPENAI_BASE_URL"))),
+            summarizer_provider=_optional_text(
+                kwargs.pop("summarizer_provider", _first_env("VIDEO_SUMMARY_SUMMARIZER_PROVIDER"))
+            )
+            or "basic",
             openai_timeout_sec=float(kwargs.pop("openai_timeout_sec", os.environ.get("OPENAI_TIMEOUT_SEC", 60.0))),
             **kwargs,
         )

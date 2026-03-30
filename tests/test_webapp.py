@@ -51,6 +51,23 @@ def test_job_submission_maps_server_side_openai_settings(tmp_path) -> None:
     assert config.openai_base_url == "https://example.test/v1"
 
 
+def test_app_settings_and_pipeline_config_fall_back_to_vllm_model(monkeypatch, tmp_path) -> None:
+    """Test that the backend can reuse the selected VLLM model without duplicate env settings."""
+    monkeypatch.setenv("VIDEO_SUMMARY_DATABASE_URL", "sqlite+pysqlite:///fallback.db")
+    monkeypatch.setenv("VIDEO_SUMMARY_STORAGE_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct-AWQ")
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+
+    settings = AppSettings.from_env()
+    config = PipelineConfig.from_paths(
+        str(tmp_path / "meeting.webm"),
+        str(tmp_path / "out"),
+    )
+
+    assert settings.openai_model == "Qwen/Qwen2.5-7B-Instruct-AWQ"
+    assert config.openai_model == "Qwen/Qwen2.5-7B-Instruct-AWQ"
+
+
 def test_webapp_job_lifecycle_and_artifact_download(tmp_path) -> None:
     """Test upload -> job id -> status -> artifact download with a stub pipeline."""
     settings = AppSettings(

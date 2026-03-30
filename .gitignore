@@ -10,3 +10,6 @@ CLAUDE.md
 .pytest_cache
 __pycache__/
 *.pyc
+.env
+docker/models/huggingface/*
+!docker/models/huggingface/.gitkeep

@@ -16,6 +16,15 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_text(*names: str) -> str | None:
+    """Read the first non-empty text environment variable from the provided names."""
+    for name in names:
+        raw = os.environ.get(name)
+        if raw and raw.strip():
+            return raw.strip()
+    return None
+
+
 @dataclass(frozen=True)
 class AppSettings:
     """Runtime settings for the API, storage, retention, and OpenAI integration."""
@@ -40,9 +49,9 @@ class AppSettings:
             storage_root=storage_root.resolve(),
             artifact_retention_hours=int(os.environ.get("VIDEO_SUMMARY_ARTIFACT_RETENTION_HOURS", 24 * 7)),
             cleanup_interval_seconds=int(os.environ.get("VIDEO_SUMMARY_CLEANUP_INTERVAL_SECONDS", 60 * 30)),
-            openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
-            openai_model=os.environ.get("OPENAI_MODEL", "gpt-5-nano") or None,
-            openai_base_url=os.environ.get("OPENAI_BASE_URL") or None,
+            openai_api_key=_env_text("OPENAI_API_KEY"),
+            openai_model=_env_text("OPENAI_MODEL", "VLLM_MODEL") or "gpt-5-nano",
+            openai_base_url=_env_text("OPENAI_BASE_URL"),
             openai_timeout_sec=float(os.environ.get("OPENAI_TIMEOUT_SEC", 60.0)),
             frontend_origin=os.environ.get("VIDEO_SUMMARY_FRONTEND_ORIGIN") or None,
             cleanup_on_request=_env_bool("VIDEO_SUMMARY_CLEANUP_ON_REQUEST", True),

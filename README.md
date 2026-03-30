@@ -33,10 +33,11 @@ Environment variables used by the backend:
 - `VIDEO_SUMMARY_CLEANUP_INTERVAL_SECONDS`: cleanup cadence when request-driven cleanup is enabled.
 - `VIDEO_SUMMARY_FRONTEND_ORIGIN`: optional CORS origin for a separately hosted frontend.
 - `OPENAI_API_KEY`: enables the OpenAI-backed summarizer when `summarizer_provider=openai`.
-- `OPENAI_MODEL`: model name for transcript summarization.
+- `OPENAI_MODEL`: model name for transcript summarization. If unset, the backend falls back to `VLLM_MODEL`.
 - `OPENAI_BASE_URL`: optional OpenAI-compatible base URL.
 - `OPENAI_TIMEOUT_SEC`: timeout for summary requests.
 - `HF_TOKEN`: optional Hugging Face token for diarization.
+- `VLLM_MODEL`: active local `vLLM` model name used by the compose stack and as the backend fallback model selector.
 
 OpenAI credentials remain server-side only and are not exposed on the public form.
 
@@ -48,16 +49,36 @@ Start the full stack:
 docker compose up --build
 ```
 
+Start the stack with local `vLLM` summarization:
+
+```powershell
+docker compose --profile llm up --build
+```
+
 Default endpoints:
 
 - Frontend: `http://localhost:8080`
 - API health: `http://localhost:8080/api/health`
+- `vLLM` OpenAI-compatible endpoint: `http://localhost:8000/v1`
 
 The compose stack includes:
 
 - `frontend`: nginx serving the static UI and proxying `/api/*`
 - `api`: FastAPI backend running the library pipeline
 - `db`: PostgreSQL for job and artifact metadata
+- `vllm`: optional GPU-backed OpenAI-compatible server for transcript summarization
+
+Model downloads are stored in the bind-mounted directory configured by `VLLM_CACHE_DIR` and default to `docker/models/huggingface/`.
+
+Copy `.env.example` to `.env` and choose the active preset by assigning `VLLM_MODEL` to one of:
+
+- `VLLM_MODEL_16GB` for a 16 GB GPU
+- `VLLM_MODEL_24GB` for a 24 GB GPU
+
+The shipped example uses quantized Qwen instruct models as practical text summarization defaults:
+
+- 16 GB preset: `Qwen/Qwen2.5-7B-Instruct-AWQ`
+- 24 GB preset: `Qwen/Qwen2.5-14B-Instruct-AWQ`
 
 ## Frontend Pages
 
