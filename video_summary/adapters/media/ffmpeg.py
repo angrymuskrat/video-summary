@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -11,6 +12,52 @@ from typing import Any, Optional, Sequence
 
 from video_summary.config import PipelineConfig
 from video_summary.domain.models import InputSource, MediaMetadata, PreparedMedia
+
+
+TOOL_ENV_VARS = {
+    "ffmpeg": "VIDEO_SUMMARY_FFMPEG_BIN",
+    "ffprobe": "VIDEO_SUMMARY_FFPROBE_BIN",
+}
+
+TOOL_FALLBACK_PATHS = {
+    "ffmpeg": ("/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg", "/bin/ffmpeg"),
+    "ffprobe": ("/usr/local/bin/ffprobe", "/usr/bin/ffprobe", "/bin/ffprobe"),
+}
+
+
+def path_exists(path: str) -> bool:
+    """Return whether a filesystem path exists after shell-friendly expansion."""
+    return Path(path).expanduser().exists()
+
+
+def resolve_tool(name: str) -> str:
+    """Resolve the executable path for a required external media tool."""
+    env_var = TOOL_ENV_VARS.get(name)
+    if env_var:
+        override = os.environ.get(env_var)
+        if override and path_exists(override):
+            return str(Path(override).expanduser())
+
+    discovered = shutil.which(name)
+    if discovered:
+        return discovered
+
+    for candidate in TOOL_FALLBACK_PATHS.get(name, ()):
+        if path_exists(candidate):
+            return candidate
+
+    raise RuntimeError(f"Required tool '{name}' was not found in PATH.")
+
+
+def resolve_command(cmd: Sequence[str]) -> list[str]:
+    """Resolve the command executable for supported external tools."""
+    resolved = list(cmd)
+    if not resolved:
+        return resolved
+    executable = resolved[0]
+    if executable in TOOL_ENV_VARS:
+        resolved[0] = resolve_tool(executable)
+    return resolved
 
 
 def run_command(
@@ -37,7 +84,7 @@ def run_command(
     if capture:
         kwargs["stdout"] = subprocess.PIPE
         kwargs["stderr"] = subprocess.PIPE
-    return subprocess.run(list(cmd), **kwargs)
+    return subprocess.run(resolve_command(cmd), **kwargs)
 
 
 def ensure_tool(name: str) -> None:
@@ -46,8 +93,7 @@ def ensure_tool(name: str) -> None:
     Args:
         name (str): Value for name.
     """
-    if shutil.which(name) is None:
-        raise RuntimeError(f"Required tool '{name}' was not found in PATH.")
+    resolve_tool(name)
 
 
 def ffmpeg_supports_encoder(encoder: str) -> bool:

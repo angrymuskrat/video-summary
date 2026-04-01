@@ -39,6 +39,8 @@ Environment variables used by the backend:
 - `OPENAI_TIMEOUT_SEC`: timeout for summary requests.
 - `HF_TOKEN`: optional Hugging Face token for diarization.
 - `VLLM_MODEL`: active local `vLLM` model name used by the compose stack and as the backend fallback model selector.
+- `VIDEO_SUMMARY_FFMPEG_BIN`: optional absolute path override for the `ffmpeg` executable.
+- `VIDEO_SUMMARY_FFPROBE_BIN`: optional absolute path override for the `ffprobe` executable.
 
 OpenAI credentials remain server-side only and are not exposed on the public form.
 
@@ -62,7 +64,7 @@ Default endpoints:
 - API health: `http://localhost:8080/api/health`
 - `vLLM` OpenAI-compatible endpoint: `http://localhost:8000/v1`
 
-The `api` container is GPU-ready: it is built on a CUDA 12.8 runtime image, installs CUDA-enabled PyTorch wheels, and requests `gpus: all` in `docker-compose.yml`. To actually run it on the GPU, the Docker host must have NVIDIA drivers plus NVIDIA Container Toolkit installed.
+The `api` container is GPU-ready: it is built on a CUDA 12.8 runtime image, installs CUDA-enabled PyTorch wheels, requests `gpus: all` in `docker-compose.yml`, and exposes NVIDIA `video` driver capability so FFmpeg can use NVENC/NVDEC. To actually run it on the GPU, the Docker host must have NVIDIA drivers plus NVIDIA Container Toolkit installed.
 
 The compose stack includes:
 

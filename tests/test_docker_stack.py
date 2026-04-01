@@ -18,7 +18,9 @@ def test_api_dockerfile_uses_cuda_runtime_and_cuda_torch_wheels() -> None:
     dockerfile = _read("docker/api/Dockerfile")
 
     assert "FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04" in dockerfile
-    assert "python -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128" in dockerfile
+    assert 'ENV VIRTUAL_ENV=/opt/venv' in dockerfile
+    assert 'RUN python3 -m venv "$VIRTUAL_ENV"' in dockerfile
+    assert '"$VIRTUAL_ENV/bin/python" -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128' in dockerfile
     assert 'CMD ["python", "-m", "uvicorn", "video_summary.webapp.app:app"' in dockerfile
 
 
@@ -29,4 +31,4 @@ def test_compose_api_service_requests_gpu_access() -> None:
     assert "  api:" in compose
     assert "    gpus: all" in compose
     assert "      NVIDIA_VISIBLE_DEVICES: all" in compose
-    assert "      NVIDIA_DRIVER_CAPABILITIES: compute,utility" in compose
+    assert "      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video" in compose
