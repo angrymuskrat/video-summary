@@ -16,12 +16,13 @@
 
 ## Web App Flow
 
-1. Open the upload page.
-2. Upload a file and submit the pipeline parameters.
-3. Receive a job ID immediately.
-4. Use the status page to monitor job state and timestamps.
-5. Use the artifacts page to preview or download generated outputs by job ID.
-6. Let the retention cleanup remove expired job rows and their managed files automatically.
+1. Open the main page.
+2. Jump to the dedicated upload page.
+3. Upload a file and submit the pipeline parameters.
+4. Receive a job ID immediately.
+5. Use the status page to monitor job state and timestamps.
+6. Use the artifacts page to preview or download generated outputs by job ID.
+7. Let the retention cleanup remove expired job rows and their managed files automatically.
 
 ## Server Settings
 
@@ -61,12 +62,16 @@ Default endpoints:
 - API health: `http://localhost:8080/api/health`
 - `vLLM` OpenAI-compatible endpoint: `http://localhost:8000/v1`
 
+The `api` container is GPU-ready: it is built on a CUDA 12.8 runtime image, installs CUDA-enabled PyTorch wheels, and requests `gpus: all` in `docker-compose.yml`. To actually run it on the GPU, the Docker host must have NVIDIA drivers plus NVIDIA Container Toolkit installed.
+
 The compose stack includes:
 
 - `frontend`: nginx serving the static UI and proxying `/api/*`
 - `api`: FastAPI backend running the library pipeline
 - `db`: PostgreSQL for job and artifact metadata
 - `vllm`: optional GPU-backed OpenAI-compatible server for transcript summarization
+
+The frontend nginx proxy is configured to accept upload bodies up to `2048M`, so large meeting recordings can reach the backend instead of failing with HTTP `413 Request Entity Too Large`.
 
 Model downloads are stored in the bind-mounted directory configured by `VLLM_CACHE_DIR` and default to `docker/models/huggingface/`.
 
@@ -82,7 +87,9 @@ The shipped example uses quantized Qwen instruct models as practical text summar
 
 ## Frontend Pages
 
-- `/index.html`: upload form with all public pipeline controls
+- `/main.html`: landing page with workflow overview and a button to the upload workspace
+- `/upload.html`: upload form with all public pipeline controls
+- `/index.html`: backward-compatible redirect to `/main.html`
 - `/status.html`: status lookup by job ID
 - `/artifacts.html`: artifact browser by job ID
 - `/help.html`: usage guide and runtime notes

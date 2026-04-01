@@ -9,7 +9,7 @@
   <body data-page="help">
     <div class="page-shell">
       <nav class="nav">
-        <a class="brand" href="/index.html">
+        <a class="brand" href="/main.html">
           <span class="brand-mark">VS</span>
           <span class="brand-copy">
             <strong>video-summary</strong>
@@ -17,7 +17,8 @@
           </span>
         </a>
         <div class="nav-links">
-          <a data-page="upload" href="/index.html">Upload</a>
+          <a data-page="main" href="/main.html">Main</a>
+          <a data-page="upload" href="/upload.html">Upload</a>
           <a data-page="status" href="/status.html">Status</a>
           <a data-page="artifacts" href="/artifacts.html">Artifacts</a>
           <a data-page="help" href="/help.html">How To Use</a>
@@ -34,17 +35,18 @@
         <article class="card">
           <h2 class="section-title">Recommended flow</h2>
           <div class="guide-list">
-            <div class="guide-item"><strong>1. Open Upload</strong><div>Choose a file, set pipeline flags, and submit the job.</div></div>
-            <div class="guide-item"><strong>2. Copy the job ID</strong><div>The backend responds immediately with the tracking identifier.</div></div>
-            <div class="guide-item"><strong>3. Monitor Status</strong><div>Use the status page to inspect lifecycle timestamps, errors, and current step.</div></div>
-            <div class="guide-item"><strong>4. Browse Artifacts</strong><div>Use the artifacts page to preview transcripts or download PPTX, subtitles, JSON, and video outputs.</div></div>
-            <div class="guide-item"><strong>5. Let retention cleanup run</strong><div>Expired jobs and their managed files are removed automatically according to server settings.</div></div>
+            <div class="guide-item"><strong>1. Open Main</strong><div>Start from the main page to review the workflow and current runtime notes.</div></div>
+            <div class="guide-item"><strong>2. Open Upload</strong><div>Choose a file, set pipeline flags, and submit the job.</div></div>
+            <div class="guide-item"><strong>3. Copy the job ID</strong><div>The backend responds immediately with the tracking identifier.</div></div>
+            <div class="guide-item"><strong>4. Monitor Status</strong><div>Use the status page to inspect lifecycle timestamps, errors, and current step.</div></div>
+            <div class="guide-item"><strong>5. Browse Artifacts</strong><div>Use the artifacts page to preview transcripts or download PPTX, subtitles, JSON, and video outputs.</div></div>
+            <div class="guide-item"><strong>6. Let retention cleanup run</strong><div>Expired jobs and their managed files are removed automatically according to server settings.</div></div>
           </div>
         </article>
 
         <aside class="card">
           <h2 class="section-title">Runtime facts</h2>
-          <div id="help-runtime" class="empty-box">Loading runtime settings…</div>
+          <div id="help-runtime" class="empty-box">Loading runtime settings...</div>
         </aside>
       </section>
 

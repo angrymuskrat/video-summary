@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>video-summary | Main</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body data-page="main">
+    <div class="page-shell">
+      <nav class="nav">
+        <a class="brand" href="/main.html">
+          <span class="brand-mark">VS</span>
+          <span class="brand-copy">
+            <strong>video-summary</strong>
+            <small>pipeline control center</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a data-page="main" href="/main.html">Main</a>
+          <a data-page="upload" href="/upload.html">Upload</a>
+          <a data-page="status" href="/status.html">Status</a>
+          <a data-page="artifacts" href="/artifacts.html">Artifacts</a>
+          <a data-page="help" href="/help.html">How To Use</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <article class="hero-card">
+          <div class="eyebrow">Meeting pipeline overview</div>
+          <div class="hero-copy">
+            <h1>Prepare here, upload on a dedicated page when you are ready.</h1>
+            <p>
+              The main screen explains the workflow, shows current runtime facts, and sends you to the dedicated upload
+              workspace when it is time to submit a recording with pipeline parameters.
+            </p>
+          </div>
+          <div class="hero-actions">
+            <a class="button" href="/upload.html">Open Upload Page</a>
+            <a class="button secondary" href="/status.html">Track Existing Job</a>
+            <a class="button secondary" href="/help.html">Read Setup Guide</a>
+          </div>
+          <p id="main-runtime-note" class="muted" style="margin:20px 0 0;">Loading runtime details...</p>
+        </article>
+
+        <aside class="hero-side hero-card">
+          <div class="hero-note">
+            <strong>Flow</strong>
+            <p class="muted">Open Upload, choose a video file, configure launch parameters, submit the job, then watch progress and artifacts by job ID.</p>
+          </div>
+          <div class="hero-grid">
+            <div class="stat-pill">
+              <strong id="retention-copy">--</strong>
+              <span>artifact retention</span>
+            </div>
+            <div class="stat-pill">
+              <strong id="field-count-copy">--</strong>
+              <span>public launch fields</span>
+            </div>
+            <div class="stat-pill">
+              <strong id="openai-copy">--</strong>
+              <span>OpenAI summary mode</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="feature-grid">
+        <article class="card">
+          <h2 class="section-title">Why split the pages</h2>
+          <div class="guide-list">
+            <div class="guide-item"><strong>Main stays clean</strong><div>Use this page as the entry point and quick summary of what the stack does.</div></div>
+            <div class="guide-item"><strong>Upload stays focused</strong><div>The separate upload page keeps the video form and parameter tuning in one dedicated workspace.</div></div>
+            <div class="guide-item"><strong>Operations stay visible</strong><div>Status, artifacts, and runtime notes stay one click away from the same navigation bar.</div></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2 class="section-title">Recommended path</h2>
+          <div class="guide-list">
+            <div class="guide-item"><strong>1. Start on Main</strong><div>Review runtime details and jump into the workflow from the main call to action.</div></div>
+            <div class="guide-item"><strong>2. Open Upload</strong><div>Submit the meeting file and pipeline parameters on the dedicated upload page.</div></div>
+            <div class="guide-item"><strong>3. Reuse the job ID</strong><div>Use Status and Artifacts to inspect progress, errors, and generated outputs.</div></div>
+          </div>
+        </article>
+      </section>
+    </div>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

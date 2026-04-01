@@ -14,12 +14,39 @@ function escapeHtml(value) {
 }
 
 async function getJson(path) {
-  const response = await fetch(`${apiBase}${path}`);
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 10000);
+  let response;
+  try {
+    response = await fetch(`${apiBase}${path}`, { signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`Request to ${path} timed out.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(detail || `Request failed with ${response.status}`);
   }
   return response.json();
+}
+
+async function postForm(path, body) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 30000);
+  try {
+    return await fetch(`${apiBase}${path}`, { method: "POST", body, signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`Request to ${path} timed out.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 function statusTone(status) {
@@ -29,7 +56,7 @@ function statusTone(status) {
 }
 
 function humanDate(value) {
-  if (!value) return "—";
+  if (!value) return "--";
   return new Date(value).toLocaleString();
 }
 
@@ -39,6 +66,26 @@ function renderNav(active) {
       link.classList.add("active");
     }
   });
+}
+
+function applyRuntimeStats(info) {
+  const retention = byId("retention-copy");
+  const openai = byId("openai-copy");
+  const fieldCount = byId("field-count-copy");
+  const runtimeNote = byId("main-runtime-note");
+
+  if (retention) {
+    retention.textContent = `${info.retention_hours} hours`;
+  }
+  if (openai) {
+    openai.textContent = info.openai_summary_available ? "enabled on server" : "disabled until OPENAI_* env vars are set";
+  }
+  if (fieldCount) {
+    fieldCount.textContent = String(info.fields.length);
+  }
+  if (runtimeNote) {
+    runtimeNote.textContent = `The server currently exposes ${info.fields.length} public launch fields and keeps artifacts for ${info.retention_hours} hours.`;
+  }
 }
 
 function formField(field) {
@@ -103,7 +150,7 @@ function renderArtifactList(job) {
             <article class="artifact-item">
               <div>
                 <strong>${escapeHtml(artifact.name)}</strong>
-                <div class="muted">${escapeHtml(artifact.kind)} · ${artifact.size_bytes ?? "?"} bytes</div>
+                <div class="muted">${escapeHtml(artifact.kind)} | ${artifact.size_bytes ?? "?"} bytes</div>
               </div>
               <div class="artifact-actions">
                 <a class="button secondary" href="${escapeHtml(artifact.download_url)}">Download</a>
@@ -121,33 +168,33 @@ function renderArtifactList(job) {
   `;
 }
 
+async function initMainPage() {
+  renderNav("main");
+  const info = await getJson("/form-options");
+  applyRuntimeStats(info);
+}
+
+async function loadUploadFormOptions(statusBox, dynamicFields) {
+  try {
+    const info = await getJson("/form-options");
+    applyRuntimeStats(info);
+    dynamicFields.innerHTML = info.fields.map(formField).join("");
+    statusBox.outerHTML = `<p id="upload-field-status" class="muted">Public pipeline parameters loaded from the backend form schema.</p>`;
+  } catch (error) {
+    statusBox.outerHTML = `<div id="upload-field-status" class="result-box error">Could not load optional pipeline parameters. You can still upload a file and the backend will use its default values. Error: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function initUploadPage() {
   renderNav("upload");
-  const container = byId("upload-app");
+  const form = byId("upload-form");
   const resultBox = byId("upload-result");
-  const info = await getJson("/form-options");
-  byId("retention-copy").textContent = `${info.retention_hours} hours`;
-  byId("openai-copy").textContent = info.openai_summary_available ? "enabled on server" : "disabled until OPENAI_* env vars are set";
-  container.innerHTML = `
-    <form id="upload-form" class="card">
-      <div class="eyebrow">Pipeline launch form</div>
-      <h2 class="section-title">Upload a meeting file and start a tracked job</h2>
-      <p class="muted">Server-side OpenAI settings stay hidden here; the form only exposes user-controlled pipeline flags and tuning values.</p>
-      <label class="field full" style="margin-bottom:18px;">
-        <span>Input File</span>
-        <input name="file" type="file" required>
-        <small>Upload `.webm`, `.mp4`, or another file your pipeline accepts.</small>
-      </label>
-      <div class="form-grid">${info.fields.map(formField).join("")}</div>
-      <div class="hero-actions" style="margin-top:22px;">
-        <button class="primary" type="submit">Start Pipeline Job</button>
-      </div>
-    </form>
-  `;
+  const statusBox = byId("upload-field-status");
+  const dynamicFields = byId("upload-dynamic-fields");
 
-  byId("upload-form").addEventListener("submit", async (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    resultBox.innerHTML = `<div class="empty-box">Submitting job…</div>`;
+    resultBox.innerHTML = `<div class="empty-box">Submitting job...</div>`;
     const formElement = event.currentTarget;
     const formData = new FormData();
     const fileInput = formElement.querySelector('input[name="file"]');
@@ -171,8 +218,11 @@ async function initUploadPage() {
     });
 
     try {
-      const response = await fetch(`${apiBase}/jobs`, { method: "POST", body: formData });
-      const payload = await response.json();
+      const response = await postForm("/jobs", formData);
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json")
+        ? await response.json()
+        : { detail: await response.text() };
       if (!response.ok) {
         throw new Error(payload.detail || `Request failed with ${response.status}`);
       }
@@ -190,6 +240,8 @@ async function initUploadPage() {
       resultBox.innerHTML = `<div class="result-box error">${escapeHtml(error.message)}</div>`;
     }
   });
+
+  void loadUploadFormOptions(statusBox, dynamicFields);
 }
 
 async function initStatusPage() {
@@ -205,7 +257,7 @@ async function initStatusPage() {
   let refreshTimer = null;
   async function loadStatus() {
     if (!input.value.trim()) return;
-    output.innerHTML = `<div class="empty-box">Loading job status…</div>`;
+    output.innerHTML = `<div class="empty-box">Loading job status...</div>`;
     try {
       const job = await getJson(`/jobs/${encodeURIComponent(input.value.trim())}`);
       output.innerHTML = `
@@ -255,7 +307,7 @@ async function initArtifactsPage() {
 
   async function loadArtifacts() {
     if (!input.value.trim()) return;
-    output.innerHTML = `<div class="empty-box">Loading artifacts…</div>`;
+    output.innerHTML = `<div class="empty-box">Loading artifacts...</div>`;
     previewTitle.textContent = "Preview";
     previewBody.textContent = "Choose a text or JSON artifact to inspect it here.";
     try {
@@ -264,7 +316,7 @@ async function initArtifactsPage() {
       output.querySelectorAll(".artifact-preview").forEach((button) => {
         button.addEventListener("click", async () => {
           previewTitle.textContent = button.dataset.name;
-          previewBody.textContent = "Loading preview…";
+          previewBody.textContent = "Loading preview...";
           try {
             const response = await fetch(button.dataset.url);
             const text = await response.text();
@@ -292,6 +344,7 @@ async function initArtifactsPage() {
 async function initHelpPage() {
   renderNav("help");
   const info = await getJson("/form-options");
+  applyRuntimeStats(info);
   byId("help-runtime").innerHTML = `
     <div class="guide-list">
       <article class="guide-item"><strong>Retention window</strong><div>${escapeHtml(String(info.retention_hours))} hours</div></article>
@@ -302,6 +355,7 @@ async function initHelpPage() {
 }
 
 const page = document.body.dataset.page;
+if (page === "main") initMainPage();
 if (page === "upload") initUploadPage();
 if (page === "status") initStatusPage();
 if (page === "artifacts") initArtifactsPage();

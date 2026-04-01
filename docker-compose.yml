@@ -12,6 +12,7 @@ services:
     build:
       context: .
       dockerfile: docker/api/Dockerfile
+    gpus: all
     environment:
       VIDEO_SUMMARY_DATABASE_URL: postgresql+psycopg://video_summary:video_summary@db:5432/video_summary
       VIDEO_SUMMARY_STORAGE_ROOT: /app/data
@@ -24,6 +25,8 @@ services:
       OPENAI_TIMEOUT_SEC: ${OPENAI_TIMEOUT_SEC:-60}
       HF_TOKEN: ${HF_TOKEN:-}
       VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - app-data:/app/data
     depends_on:
